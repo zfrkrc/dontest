@@ -1,9 +1,14 @@
-FROM nmap/nmap:7.94
+FROM kalilinux/kali-rolling
 
-USER root
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-    apt-get install -y bash curl jq && \
+    apt-get install -y \
+      nmap \
+      bash \
+      curl \
+      jq && \
+    apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /scan
