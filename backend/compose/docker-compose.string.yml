@@ -1,14 +1,12 @@
 services:
   merge:
-    image: pentaas-merge
-    container_name: pentaas_merge_runner
-
+    build:
+      context: ./merge
+      dockerfile: Dockerfile
+    container_name: pentaas_merge
     environment:
-      TARGET: ${TARGET:-127.0.0.1}
-      DATA_DIR: ${DATA_DIR:-/tmp/data}
-
+      TARGET: ${TARGET}
+      DATA_DIR: ${DATA_DIR}
     volumes:
-      - ${DATA_DIR:-/tmp/data}:/data
-
-    working_dir: /data
-    command: ["sh", "-c", "echo TARGET=$TARGET && echo DATA_DIR=$DATA_DIR && ls -lah /data"]
+      - ${DATA_DIR}:${DATA_DIR}
+    network_mode: bridge

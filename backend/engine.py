@@ -1,31 +1,37 @@
 import subprocess
-from pathlib import Path
 import uuid
+import os
 
-BASE_DIR = Path("/app/reports")
+BASE_DIR = "/app"
+COMPOSE_FILE = f"{BASE_DIR}/compose/docker-compose.string.yml"
+REPORT_DIR = f"{BASE_DIR}/reports"
 
-def run_scan(ip: str, category: str) -> str:
+
+def run_scan(target: str, category: str) -> str:
     uid = uuid.uuid4().hex
+    data_dir = f"{REPORT_DIR}/{uid}/data"
 
-    data_dir = BASE_DIR / uid / "data"
-    data_dir.mkdir(parents=True, exist_ok=True)
-
-    compose_file = "/app/compose/docker-compose.string.yml"
+    os.makedirs(data_dir, exist_ok=True)
 
     cmd = [
         "docker", "compose",
-        "-f", compose_file,
+        "-f", COMPOSE_FILE,
         "run", "--rm",
-        "-e", f"TARGET={ip}",
-        "-e", f"DATA_DIR={str(data_dir)}",
+        "-e", f"TARGET={target}",
+        "-e", f"DATA_DIR={data_dir}",
         "merge"
     ]
 
-    subprocess.run(
+    result = subprocess.run(
         cmd,
-        check=True
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
     )
 
-    print("Running:", " ".join(cmd))
-    subprocess.run(cmd, check=True, cwd="/home/zfrkrc/pentest/pentaas-oneclick")
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"Scan failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+        )
+
     return uid
