@@ -1,12 +1,12 @@
 services:
-merge:
-  build:
-    context: ./merge
-    dockerfile: Dockerfile
-  container_name: pentaas_merge
-  environment:
-    - TARGET=${TARGET}
-    - DATA_DIR=/app/reports/${SCAN_ID}/data
-  volumes:
-    - ./reports:/app/reports
-  network_mode: bridge
+  merge:
+    build:
+      context: ./merge
+      dockerfile: Dockerfile
+    container_name: pentaas_merge
+    environment:
+      - TARGET=${TARGET}
+      - DATA_DIR=${DATA_DIR}
+    volumes:
+      - ./reports:/app/reports
+    network_mode: bridge
