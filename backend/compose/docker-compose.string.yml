@@ -47,7 +47,8 @@ services:
   wpscan:
     image: wpscanteam/wpscan
     profiles: [ "gray" ]
-    command: --url ${TARGET} --format json -o /data/wpscan.json --disable-tls-checks
+    entrypoint: [ "/bin/sh", "-c" ]
+    command: "wpscan --url ${TARGET} --format json -o /data/wpscan.json --disable-tls-checks > /data/wpscan_debug.log 2>&1"
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -57,7 +58,7 @@ services:
     profiles: [ "gray" ]
     user: root
     # ZAP requires a writable dir
-    command: zap-baseline.py -t ${TARGET} -J /data/zap.json
+    command: zap-baseline.py -t ${TARGET} -J zap.json
     volumes:
       - ${HOST_DATA_DIR}:/data
       - ${HOST_DATA_DIR}:/zap/wrk
