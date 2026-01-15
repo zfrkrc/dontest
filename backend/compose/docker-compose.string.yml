@@ -37,7 +37,9 @@ services:
     network_mode: bridge
 
   whatweb:
-    image: circus-monkey/whatweb
+    build:
+      context: ./whatweb
+      dockerfile: Dockerfile
     profiles: [ "white" ]
     command: --log-json /data/whatweb.json ${TARGET}
     volumes:
