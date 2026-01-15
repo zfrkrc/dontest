@@ -9,29 +9,33 @@ REPORT_DIR = f"{BASE_DIR}/reports"
 
 def run_scan(target: str, category: str) -> str:
     uid = uuid.uuid4().hex
-    data_dir = f"{REPORT_DIR}/{uid}/data"
+    
+    # Internal path (container view)
+    data_dir_internal = f"{REPORT_DIR}/{uid}/data"
+    os.makedirs(data_dir_internal, exist_ok=True)
+    
+    # Host path (for DinD)
+    host_reports_path = os.environ.get("HOST_REPORTS_PATH", f"{os.getcwd()}/reports")
+    host_data_dir = f"{host_reports_path}/{uid}/data"
 
-    os.makedirs(data_dir, exist_ok=True)
+    env_vars = os.environ.copy()
+    env_vars["TARGET"] = target
+    env_vars["HOST_DATA_DIR"] = host_data_dir
 
-    cmd = [
-        "docker", "compose",
-        "-f", COMPOSE_FILE,
-        "run", "--rm",
-        "-e", f"TARGET={target}",
-        "-e", f"DATA_DIR={data_dir}",
-        "merge"
-    ]
-
-    result = subprocess.run(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True
+    # 1. Run Scanners
+    print(f"Starting {category} scan for {target}...")
+    subprocess.run(
+        ["docker", "compose", "-f", COMPOSE_FILE, "--profile", category, "up", "--abort-on-container-exit"],
+        env=env_vars,
+        check=True
     )
 
-    if result.returncode != 0:
-        raise RuntimeError(
-            f"Scan failed:\nSTDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
-        )
+    # 2. Run Merge
+    print("Merging results...")
+    subprocess.run(
+        ["docker", "compose", "-f", COMPOSE_FILE, "run", "--rm", "merge"],
+        env=env_vars,
+        check=True
+    )
 
     return uid

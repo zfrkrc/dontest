@@ -1,10 +1,108 @@
 services:
+  # White Profile
+  nmap_white:
+    image: instrumentisto/nmap
+    profiles: [ "white" ]
+    command: -sT -F -oX /data/nmap_white.xml ${TARGET}
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  testssl:
+    image: drwetter/testssl.sh
+    profiles: [ "white" ]
+    command: --jsonfile /data/testssl.json ${TARGET}
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  dirsearch:
+    image: maurosoria/dirsearch
+    profiles: [ "white" ]
+    command: --url ${TARGET} --format=json -o /data/dirsearch.json
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  nikto_white:
+    image: secfa/docker-nikto
+    profiles: [ "white" ]
+    command: -h ${TARGET} -o /data/nikto_white.json
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  # Gray Profile
+  nmap_gray:
+    image: instrumentisto/nmap
+    profiles: [ "gray" ]
+    command: -sV -sC -oX /data/nmap_gray.xml ${TARGET}
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  wpscan:
+    image: wpscan/wpscan
+    profiles: [ "gray" ]
+    command: --url ${TARGET} --format json -o /data/wpscan.json --disable-tls-checks
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  zap:
+    image: zaproxy/zap-stable
+    profiles: [ "gray" ]
+    user: root
+    # ZAP requires a writable dir
+    command: zap-baseline.py -t ${TARGET} -J /data/zap.json
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+      - ${HOST_DATA_DIR}:/zap/wrk
+    network_mode: bridge
+
+  sslyze:
+    image: nablas/sslyze
+    profiles: [ "gray" ]
+    command: --json_out=/data/sslyze.json ${TARGET}
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  # Black Profile
+  nmap_black:
+    image: instrumentisto/nmap
+    profiles: [ "black" ]
+    command: -A -oX /data/nmap_black.xml ${TARGET}
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  nuclei:
+    image: projectdiscovery/nuclei
+    profiles: [ "black" ]
+    command: -u ${TARGET} -json -o /data/nuclei.json
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  nikto_black:
+    image: secfa/docker-nikto
+    profiles: [ "black" ]
+    command: -h ${TARGET} -o /data/nikto_black.json
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  # Merge Service (Runs after scans)
   merge:
     build:
       context: ./merge
       dockerfile: Dockerfile
     container_name: pentaas_merge
-    # Env vars are passed via -e flags in engine.py
+    # No profile means it won't run with others unless specified, but we will run it explicitly with run
     volumes:
-      - ${HOST_REPORTS_PATH}:/app/reports
+      - ${HOST_DATA_DIR}:/app/reports/session/data
+    environment:
+      - TARGET=${TARGET}
+      - DATA_DIR=/app/reports/session/data
     network_mode: bridge
