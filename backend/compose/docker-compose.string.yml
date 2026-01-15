@@ -18,9 +18,11 @@ services:
     network_mode: bridge
 
   dirsearch:
-    image: python:3.9-slim
+    build:
+      context: ./dirsearch
+      dockerfile: Dockerfile
     profiles: [ "white" ]
-    command: sh -c "pip install dirsearch && dirsearch -u ${TARGET} --format=json -o /data/dirsearch.json"
+    command: -u ${TARGET} --format=json -o /data/dirsearch.json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
