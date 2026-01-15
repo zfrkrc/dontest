@@ -14,6 +14,40 @@ function App() {
     setIsScanning(true);
     setProgress(0);
     setScanResult(null);
+
+    // Mode-specific templates
+    const templates = {
+      black: {
+        counts: [0, 1, 4, 12], // Crit, High, Med, Low
+        findings: [
+          { id: 1, title: 'Unencrypted HTTP Communication', severity: 'High', description: 'Sensitive data transmitted over plain text.' },
+          { id: 2, title: 'Insecure SSL Cipher Suite', severity: 'Medium', description: 'Server supports deprecated TLS 1.0/1.1.' },
+          { id: 3, title: 'Missing Security Headers', severity: 'Low', description: 'HSTS and CSP headers are not present.' },
+          { id: 4, title: 'Exposed Server Signature', severity: 'Low', description: 'Server version (Nginx/1.18.0) is visible in headers.' }
+        ]
+      },
+      gray: {
+        counts: [1, 3, 8, 18],
+        findings: [
+          { id: 1, title: 'Session Hijacking via Lack of CSRF', severity: 'Critical', description: 'Forms lack anti-CSRF tokens.' },
+          { id: 2, title: 'Insecure Direct Object Reference (IDOR)', severity: 'High', description: 'User data accessible by changing ID in URL.' },
+          { id: 3, title: 'Weak Password Policy', severity: 'Medium', description: 'Passwords lack complexity requirements.' },
+          { id: 4, title: 'Improper Error Handling', severity: 'Low', description: 'Stack traces visible on 500 errors.' }
+        ]
+      },
+      white: {
+        counts: [2, 5, 12, 24],
+        findings: [
+          { id: 1, title: 'Blind SQL Injection on /api/v1/search', severity: 'Critical', description: 'Database exfiltration possible via time-based injection.' },
+          { id: 2, title: 'Remote Code Execution (RCE)', severity: 'Critical', description: 'Unsafe deserialization detected in file upload.' },
+          { id: 3, title: 'Hardcoded API Credentials', severity: 'High', description: 'AWS Secret keys found in frontend build artifacts.' },
+          { id: 4, title: 'Insecure Cryptographic Storage', severity: 'High', description: 'User passwords stored using MD5 instead of Argon2/BCrypt.' }
+        ]
+      }
+    };
+
+    const selected = templates[mode] || templates.black;
+
     const interval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 100) {
@@ -23,28 +57,21 @@ function App() {
             ip: target,
             mode: mode,
             vulnerabilities: [
-              { severity: 'Critical', count: 2 },
-              { severity: 'High', count: 5 },
-              { severity: 'Medium', count: 12 },
-              { severity: 'Low', count: 24 }
+              { severity: 'Critical', count: selected.counts[0] },
+              { severity: 'High', count: selected.counts[1] },
+              { severity: 'Medium', count: selected.counts[2] },
+              { severity: 'Low', count: selected.counts[3] }
             ],
-            findings: [
-              { id: 1, title: 'SQL Injection on /api/login', severity: 'Critical', description: 'User input is directly concatenated into SQL query.' },
-              { id: 2, title: 'Cross-Site Scripting (XSS)', severity: 'Critical', description: 'Unsanitized input in comment section.' },
-              { id: 3, title: 'Weak SSL Cipher Suite', severity: 'High', description: 'Server supports 3DES and RC4 ciphers.' },
-              { id: 4, title: 'Insecure Direct Object Reference', severity: 'High', description: 'Session tokens are predictable.' },
-              { id: 5, title: 'Directory Listing Enabled', severity: 'Medium', description: 'Server allows browsing of /uploads directory.' }
-            ],
+            findings: selected.findings,
             time: new Date().toLocaleString()
           });
-
           return 100;
         }
         return prev + 5;
       });
     }, 300);
-
   };
+
 
   const downloadCSV = () => {
     if (!scanResult) return;
