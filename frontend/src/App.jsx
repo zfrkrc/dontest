@@ -62,7 +62,7 @@ function App() {
       const counts = { Critical: 0, High: 0, Medium: 0, Low: 0, Info: 0 };
       data.findings.forEach(f => {
         if (counts[f.severity] !== undefined) counts[f.severity]++;
-        else if (f.severity === 'Informational') counts.Info++;
+        else if (f.severity === 'Info' || f.severity === 'Informational') counts.Info++;
       });
 
       setScanResult({
@@ -72,7 +72,8 @@ function App() {
           { severity: 'Critical', count: counts.Critical },
           { severity: 'High', count: counts.High },
           { severity: 'Medium', count: counts.Medium },
-          { severity: 'Low', count: counts.Low }
+          { severity: 'Low', count: counts.Low },
+          { severity: 'Info', count: counts.Info }
         ],
         findings: data.findings,
         time: new Date().toLocaleString()
@@ -267,9 +268,9 @@ function App() {
 
                         <div className="row g-3">
                           {scanResult.vulnerabilities.map((v, i) => (
-                            <div key={i} className="col-6 col-md-3">
-                              <div className="p-3 text-center border rounded bg-light">
-                                <h4 className={`mbr-fonts-style display-7 mb-1 ${v.severity === 'Critical' ? 'text-danger' : v.severity === 'High' ? 'text-warning' : 'text-primary'}`}>
+                            <div key={i} className="col">
+                              <div className="p-3 text-center border rounded bg-light" style={{ minWidth: '100px' }}>
+                                <h4 className={`mbr-fonts-style display-7 mb-1 ${v.severity === 'Critical' ? 'text-danger' : v.severity === 'High' ? 'text-warning' : v.severity === 'Medium' ? 'text-primary' : 'text-muted'}`}>
                                   <strong>{v.severity}</strong>
                                 </h4>
                                 <span className="display-5"><strong>{v.count}</strong></span>

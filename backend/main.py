@@ -98,14 +98,27 @@ def get_scan_results(scan_id: str):
         try:
             with open(zap_path, 'r') as f:
                 data = json.load(f)
-                for alert in data.get("site", [{}])[0].get("alerts", []):
-                    results["findings"].append({
-                        "id": f"zap-{len(results['findings'])}",
-                        "title": alert.get("name", "ZAP Finding"),
-                        "severity": alert.get("riskdesc", "Medium").split(" ")[0],
-                        "description": alert.get("desc", "")
-                    })
+                sites = data.get("site", [])
+                if isinstance(sites, dict): sites = [sites] # robustness
+                for site in sites:
+                    for alert in site.get("alerts", []):
+                        results["findings"].append({
+                            "id": f"zap-{len(results['findings'])}",
+                            "title": alert.get("name", "ZAP Finding"),
+                            "severity": alert.get("riskdesc", "Medium").split(" ")[0],
+                            "description": alert.get("desc", "No description provided.")
+                        })
         except: pass
+    
+    # Check for ZAP yaml just in case
+    zap_yaml = os.path.join(data_dir, "zap.yaml")
+    if os.path.exists(zap_yaml):
+        results["findings"].append({
+            "id": f"zap-y-{len(results['findings'])}",
+            "title": "ZAP YAML Report Found",
+            "severity": "Info",
+            "description": "ZAP produced a YAML report instead of JSON. This might contain configuration or alert summaries."
+        })
 
     # 4. WPScan (Gray usually)
     wpscan_path = os.path.join(data_dir, "wpscan.json")
@@ -143,15 +156,19 @@ def get_scan_results(scan_id: str):
                 root = tree.getroot()
                 for port in root.findall(".//port"):
                     portid = port.get("portid")
-                    state = port.find("state").get("state")
-                    if state == "open":
+                    state_node = port.find("state")
+                    if state_node is not None and state_node.get("state") == "open":
                         service = port.find("service")
                         svc_name = service.get("name") if service is not None else "unknown"
+                        svc_ver = service.get("version") if service is not None else ""
+                        svc_prod = service.get("product") if service is not None else ""
+                        full_svc = f"{svc_prod} {svc_ver}".strip() or svc_name
+                        
                         results["findings"].append({
                             "id": f"nmap-{len(results['findings'])}",
                             "title": f"Open Port: {portid} ({svc_name})",
                             "severity": "Low",
-                            "description": f"The port {portid} running {svc_name} was found open."
+                            "description": f"Service: {full_svc} detected on port {portid}."
                         })
             except: pass
 
@@ -173,14 +190,52 @@ def get_scan_results(scan_id: str):
                         })
         except: pass
 
+    # 7. SSLyze (Gray/White)
+    sslyze_path = os.path.join(data_dir, "sslyze.json")
+    if os.path.exists(sslyze_path):
+        try:
+            with open(sslyze_path, 'r') as f:
+                data = json.load(f)
+                for target in data.get("processed_targets", []):
+                    scan_res = target.get("result", {})
+                    # Check for Heartbleed or other common findings
+                    for plugin in ["heartbleed", "robot", "openssl_ccs"]:
+                        p_res = scan_res.get(plugin, {})
+                        if p_res.get("is_vulnerable_to_heartbleed") or p_res.get("is_vulnerable_to_robot"):
+                            results["findings"].append({
+                                "id": f"ssl-{len(results['findings'])}",
+                                "title": f"SSL Vulnerability: {plugin.upper()}",
+                                "severity": "High",
+                                "description": f"The target is vulnerable to {plugin} attack."
+                            })
+                    # Add Info for supported protocols
+                    for proto in ["ssl_2_0", "ssl_3_0", "tls_1_0"]:
+                        p_res = scan_res.get(proto, {})
+                        if p_res.get("is_supported"):
+                            results["findings"].append({
+                                "id": f"ssl-{len(results['findings'])}",
+                                "title": f"Deprecated Protocol: {proto.upper()}",
+                                "severity": "Medium",
+                                "description": f"Target supports {proto.upper()}, which is deprecated."
+                            })
+        except: pass
+
     # Placeholder for counts if findings empty
     if not results["findings"]:
-        # Add basic dummy if nothing found to avoid empty dashboard during dev
-        results["findings"].append({
-            "id": "info-1",
-            "title": "Scan Completed",
-            "severity": "Low",
-            "description": "The scan finished but no specific vulnerabilities were automatically parsed yet."
-        })
+        # Check if we at least have files but no findings
+        if results["raw_files"]:
+            results["findings"].append({
+                "id": "info-1",
+                "title": "Scan Finished (No automatic findings)",
+                "severity": "Info",
+                "description": f"Scan completed. Found files: {', '.join(results['raw_files'])}. No critical vulnerabilities were automatically flagged, but manual review of these logs is recommended."
+            })
+        else:
+            results["findings"].append({
+                "id": "info-1",
+                "title": "Scan Incomplete",
+                "severity": "Info",
+                "description": "The scan finished or was interrupted without producing any output files. Please check the target connectivity."
+            })
 
     return results

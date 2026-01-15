@@ -59,8 +59,8 @@ services:
     image: zaproxy/zap-stable
     profiles: [ "gray" ]
     user: root
-    # Standard command, relying on root for permissions. No complex shell redirection.
-    command: zap-baseline.py -t https://${TARGET} -J zap.json
+    # Use HTTP for baseline as port 443 is often filtered, and write to mapped volume
+    command: zap-baseline.py -t http://${TARGET} -J /zap/wrk/zap.json
     volumes:
       - ${HOST_DATA_DIR}:/zap/wrk
     network_mode: bridge
@@ -107,10 +107,10 @@ services:
   merge:
     image: alpine
     container_name: pentaas_merge
-    command: sh -c "echo 'Scanning contents of ${DATA_DIR}...' && ls -l /app/reports/session/data && echo 'Scan Summary for ${TARGET}' > /app/reports/session/data/scan_summary.txt && echo 'Files found:' >> /app/reports/session/data/scan_summary.txt && ls -1 /app/reports/session/data >> /app/reports/session/data/scan_summary.txt"
+    profiles: [ "aux" ] # Prevent running during 'up --profile gray'
+    command: sh -c "echo 'Scanning contents of /app/reports/session/data...' && echo 'Scan Summary for ${TARGET}' > /app/reports/session/data/scan_summary.txt && echo 'Files found:' >> /app/reports/session/data/scan_summary.txt && ls -1 /app/reports/session/data >> /app/reports/session/data/scan_summary.txt"
     volumes:
       - ${HOST_DATA_DIR}:/app/reports/session/data
     environment:
       - TARGET=${TARGET}
-      - DATA_DIR=/app/reports/session/data
     network_mode: bridge
