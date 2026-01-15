@@ -58,11 +58,9 @@ services:
   zap:
     image: zaproxy/zap-stable
     profiles: [ "gray" ]
-    # ZAP runs as user 'zap' (1000). We mount data directly to /zap/wrk where it has permissions.
-    # We do NOT override entrypoint, just user the command.
-    command: zap-baseline.py -t ${TARGET} -J zap.json
+    # Mount to /zap/wrk, and tell ZAP to write the report THERE.
+    command: zap-baseline.py -t ${TARGET} -J /zap/wrk/zap.json
     volumes:
-      # Mount directly to /zap/wrk so zap.json ends up in HOST_DATA_DIR
       - ${HOST_DATA_DIR}:/zap/wrk
     network_mode: bridge
 
