@@ -1,4 +1,8 @@
-function App() {
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+export default function App() {
+  const navigate = useNavigate();
   const [ip, setIp] = useState("");
   const [cat, setCat] = useState("white");
   const scan = async () => {
