@@ -28,8 +28,16 @@ function App() {
               { severity: 'Medium', count: 12 },
               { severity: 'Low', count: 24 }
             ],
+            findings: [
+              { id: 1, title: 'SQL Injection on /api/login', severity: 'Critical', description: 'User input is directly concatenated into SQL query.' },
+              { id: 2, title: 'Cross-Site Scripting (XSS)', severity: 'Critical', description: 'Unsanitized input in comment section.' },
+              { id: 3, title: 'Weak SSL Cipher Suite', severity: 'High', description: 'Server supports 3DES and RC4 ciphers.' },
+              { id: 4, title: 'Insecure Direct Object Reference', severity: 'High', description: 'Session tokens are predictable.' },
+              { id: 5, title: 'Directory Listing Enabled', severity: 'Medium', description: 'Server allows browsing of /uploads directory.' }
+            ],
             time: new Date().toLocaleString()
           });
+
           return 100;
         }
         return prev + 5;
@@ -37,6 +45,22 @@ function App() {
     }, 300);
 
   };
+
+  const downloadCSV = () => {
+    if (!scanResult) return;
+    const header = "ID,Title,Severity,Description\n";
+    const body = scanResult.findings.map(f => `${f.id},"${f.title}","${f.severity}","${f.description}"`).join("\n");
+    const blob = new Blob([header + body], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', `report_${target}_${new Date().getTime()}.csv`);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
 
 
   return (
@@ -171,18 +195,48 @@ function App() {
                           ))}
                         </div>
 
+                        {/* Detailed Findings Section */}
+                        <div className="mt-5">
+                          <h4 className="mbr-fonts-style display-6 mb-4"><strong>Detailed Findings</strong></h4>
+                          <div className="table-responsive">
+                            <table className="table table-hover">
+                              <thead className="table-dark">
+                                <tr>
+                                  <th>Severity</th>
+                                  <th>Finding</th>
+                                  <th>Description</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {scanResult.findings.map((f) => (
+                                  <tr key={f.id}>
+                                    <td>
+                                      <span className={`badge ${f.severity === 'Critical' ? 'bg-danger' : f.severity === 'High' ? 'bg-warning text-dark' : 'bg-info'}`}>
+                                        {f.severity}
+                                      </span>
+                                    </td>
+                                    <td><strong>{f.title}</strong></td>
+                                    <td><small>{f.description}</small></td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+
                         <div className="mt-4 pt-3 border-top text-end">
                           <button className="btn btn-outline-dark display-4 me-2" onClick={() => window.print()}>
                             <span className="mobi-mbri mobi-mbri-print mbr-iconfont mbr-iconfont-btn"></span>
                             Print PDF
                           </button>
-                          <button className="btn btn-primary display-4" onClick={() => alert('Full report downloading...')}>
+                          <button className="btn btn-primary display-4" onClick={downloadCSV}>
                             <span className="mobi-mbri mobi-mbri-download mbr-iconfont mbr-iconfont-btn"></span>
                             Download CSV
                           </button>
                         </div>
                       </div>
                     )}
+
 
 
                   </div>
