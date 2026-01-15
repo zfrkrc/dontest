@@ -126,24 +126,42 @@ def get_scan_results(scan_id: str):
         try:
             with open(wpscan_path, 'r') as f:
                 data = json.load(f)
-                # Parse vulnerabilities
-                ivs = data.get("interesting_findings", [])
-                for item in ivs:
-                  results["findings"].append({
-                        "id": f"wps-i-{len(results['findings'])}",
-                        "title": "WPScan Interest",
-                        "severity": "Low",
-                        "description": item.get("to_s", "Interesting finding")
-                    })
-                # Parse version vulnerabilities if any
-                vulnerabilities = data.get("version", {}).get("vulnerabilities", [])
-                for v in vulnerabilities:
-                    results["findings"].append({
-                        "id": f"wps-v-{len(results['findings'])}",
-                        "title": v.get("title", "WordPress Vulnerability"),
-                        "severity": "High",
-                        "description": f"Fixed in: {v.get('fixed_in', 'N/A')}"
-                    })
+                
+                # Check for nested targets if it's not the flat format
+                targets = [data]
+                if not data.get("interesting_findings") and not data.get("version"):
+                    # Try to find target keys (they are usually URLs)
+                    for k, v in data.items():
+                        if isinstance(v, dict) and (v.get("interesting_findings") or v.get("version")):
+                            targets.append(v)
+                
+                for t in targets:
+                    # Parse interesting findings
+                    for item in t.get("interesting_findings", []):
+                        results["findings"].append({
+                            "id": f"wps-i-{len(results['findings'])}",
+                            "title": "WPScan Interest",
+                            "severity": "Low",
+                            "description": item.get("to_s", "Interesting finding")
+                        })
+                    # Parse version vulnerabilities
+                    vulnerabilities = t.get("version", {}).get("vulnerabilities", [])
+                    for v in vulnerabilities:
+                        results["findings"].append({
+                            "id": f"wps-v-{len(results['findings'])}",
+                            "title": v.get("title", "WordPress Vulnerability"),
+                            "severity": "High",
+                            "description": f"Fixed in: {v.get('fixed_in', 'N/A')}"
+                        })
+                    # Parse plugin vulnerabilities
+                    for p_name, p_data in t.get("plugins", {}).items():
+                        for v in p_data.get("vulnerabilities", []):
+                            results["findings"].append({
+                                "id": f"wps-p-{len(results['findings'])}",
+                                "title": f"Plugin: {p_name}",
+                                "severity": "High",
+                                "description": v.get("title", "Vulnerability")
+                            })
         except: pass
 
     # 5. Nmap (Common - XML Parsing)
