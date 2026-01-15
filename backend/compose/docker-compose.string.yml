@@ -60,7 +60,7 @@ services:
     profiles: [ "gray" ]
     user: root
     # Standard command, relying on root for permissions. No complex shell redirection.
-    command: zap-baseline.py -t ${TARGET} -J zap.json
+    command: zap-baseline.py -t https://${TARGET} -J zap.json
     volumes:
       - ${HOST_DATA_DIR}:/zap/wrk
     network_mode: bridge
@@ -68,7 +68,12 @@ services:
   sslyze:
     image: python:3.9-slim
     profiles: [ "gray" ]
-    command: sh -c "pip install sslyze && sslyze --json_out=/data/sslyze.json ${TARGET}"
+    environment:
+      - PIP_ROOT_USER_ACTION=ignore
+    command: >
+      sh -c "pip install --upgrade pip --disable-pip-version-check &&
+             pip install --disable-pip-version-check sslyze &&
+             sslyze --json_out=/data/sslyze.json ${TARGET}"
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
