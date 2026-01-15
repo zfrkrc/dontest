@@ -30,7 +30,25 @@ services:
       context: ./nikto
       dockerfile: Dockerfile
     profiles: [ "white" ]
-    command: -h ${TARGET} -o /data/nikto_white.json
+    # -Plugins +: adds all default plus extra, -Tuning 123b: specific categories (interesting files, misconfigs)
+    command: -h ${TARGET} -o /data/nikto_white.json -Plugins @@ALL -Tuning 123b
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  whatweb:
+    image: circus-monkey/whatweb
+    profiles: [ "white" ]
+    command: --log-json /data/whatweb.json ${TARGET}
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  nuclei_white:
+    image: projectdiscovery/nuclei
+    profiles: [ "white" ]
+    # Focus on non-intrusive tech detection and exposures
+    command: -u ${TARGET} -tags exposures,tech-detect -json -o /data/nuclei_white.json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge

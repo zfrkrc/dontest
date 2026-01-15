@@ -60,21 +60,22 @@ def get_scan_results(scan_id: str):
     }
 
     # Helper to parse common tool outputs
-    # 1. Nuclei (Black/Gray usually)
-    nuclei_path = os.path.join(data_dir, "nuclei.json")
-    if os.path.exists(nuclei_path):
-        try:
-            with open(nuclei_path, 'r') as f:
-                for line in f:
-                    if not line.strip(): continue
-                    item = json.loads(line)
-                    results["findings"].append({
-                        "id": f"nuclei-{len(results['findings'])}",
-                        "title": item.get("info", {}).get("name", "Nuclei Finding"),
-                        "severity": item.get("info", {}).get("severity", "info").capitalize(),
-                        "description": item.get("info", {}).get("description", "No description provided.")
-                    })
-        except: pass
+    # 1. Nuclei (All modes)
+    for nuclei_file in ["nuclei.json", "nuclei_white.json"]:
+        nuclei_path = os.path.join(data_dir, nuclei_file)
+        if os.path.exists(nuclei_path):
+            try:
+                with open(nuclei_path, 'r') as f:
+                    for line in f:
+                        if not line.strip(): continue
+                        item = json.loads(line)
+                        results["findings"].append({
+                            "id": f"nuclei-{len(results['findings'])}",
+                            "title": item.get("info", {}).get("name", "Nuclei Finding"),
+                            "severity": item.get("info", {}).get("severity", "info").capitalize(),
+                            "description": item.get("info", {}).get("description", "No description provided.")
+                        })
+            except: pass
 
     # 2. Nikto (Common)
     for nikto_file in ["nikto_white.json", "nikto_black.json"]:
@@ -274,6 +275,23 @@ def get_scan_results(scan_id: str):
                             "title": f"TestSSL: {item.get('id', 'Issue')}",
                             "severity": mapped_sev,
                             "description": item.get("finding", "No description")
+                        })
+        except: pass
+
+    # 9. WhatWeb (Common - JSON list)
+    whatweb_path = os.path.join(data_dir, "whatweb.json")
+    if os.path.exists(whatweb_path):
+        try:
+            with open(whatweb_path, 'r') as f:
+                data = json.load(f)
+                for entry in data:
+                    plugins = entry.get("plugins", {})
+                    for p_name, p_val in plugins.items():
+                        results["findings"].append({
+                            "id": f"ww-{len(results['findings'])}",
+                            "title": f"Tech Detected: {p_name}",
+                            "severity": "Info",
+                            "description": str(p_val.get("string", p_val.get("version", "Detected")))
                         })
         except: pass
 
