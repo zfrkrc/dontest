@@ -90,56 +90,13 @@ function App() {
         </div>
       </section>
 
-      {/* Intro / Testimonials Section (Repurpose for Quick Intro) */}
-      <section data-bs-version="5.1" className="people07 cid-uSrJKo6yl4" id="testimonials-8-uSrJKo6yl4">
-        <div className="container">
-          <div className="row justify-content-center">
-            <div className="col-md-12 col-lg-8">
-              <p className="card-text mbr-fonts-style display-5">Identify vulnerabilities before they are exploited. Automated scanning for web and network assets.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Video Section (Placeholder as in source) */}
-      <section data-bs-version="5.1" className="header18 cid-uSrJKo73AL mbr-fullscreen" id="video-5-uSrJKo73AL">
-        <div className="mbr-overlay" style={{ opacity: 0, backgroundColor: 'rgb(0, 0, 0)' }}></div>
-        <div className="container">
-          <div className="row">
-          </div>
-        </div>
-      </section>
-
-      {/* Call to Action Section */}
-      <section data-bs-version="5.1" className="header14 cid-uSrJKo7xHR mbr-fullscreen" id="call-to-action-9-uSrJKo7xHR">
-        <div className="container">
-          <div className="row justify-content-center">
-            <div className="card col-12 col-md-12 col-lg-12">
-              <div className="card-wrapper">
-                <div className="card-box align-center">
-                  <h1 className="card-title mbr-fonts-style mb-4 display-1"><strong>Start Scanning Now</strong></h1>
-                  <p className="mbr-text mbr-fonts-style mb-4 display-7">Secure your infrastructure with our one-click solutions.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Sections removed: Testimonials, Video, Call to Action */}
 
       {/* Features Slider Section */}
       <section data-bs-version="5.1" className="features017 mbr-embla cid-uSrJKo86Hs" id="features-17-uSrJKo86Hs">
         <div className="position-relative">
           <div className="container-fluid">
-            <div className="row justify-content-center">
-              <div className="col-12 content-head">
-                <div className="mbr-section-head mb-5">
-                  <h4 className="mbr-section-title mbr-fonts-style align-center mb-0 display-2">
-                    <strong>Core Features</strong>
-                  </h4>
-                  <h5 className="mbr-section-subtitle mbr-fonts-style align-center mb-0 mt-4 display-7">Security at your fingertips</h5>
-                </div>
-              </div>
-            </div>
+            {/* Header removed */}
           </div>
 
           <div className="embla" data-skip-snaps="true" data-align="center" data-contain-scroll="trimSnaps" data-auto-play-interval="5" data-draggable="true">
@@ -224,11 +181,7 @@ function App() {
       <section data-bs-version="5.1" className="features5 cid-uSrJKoa50J" id="features-22-uSrJKoa50J">
         <div className="container">
           <div className="row mb-5 justify-content-center">
-            <div className="col-12 content-head">
-              <h3 className="mbr-section-title mbr-fonts-style align-center mb-0 display-2">
-                <strong>Security Solutions</strong>
-              </h3>
-            </div>
+            {/* Header removed */}
           </div>
           <div className="row">
             <div className="item features-without-image col-12 col-md-6 col-lg-4 item-mb">
