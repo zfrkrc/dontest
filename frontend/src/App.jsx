@@ -11,6 +11,13 @@ export default function App() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ip, category: cat })
     });
+
+    if (!r.ok) {
+      const err = await r.json();
+      alert("Hata: " + (err.detail || "Bilinmeyen hata"));
+      return;
+    }
+
     const { uid } = await r.json();
     navigate(`/report/${uid}`);
   };
