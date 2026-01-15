@@ -24,18 +24,28 @@ def run_scan(target: str, category: str) -> str:
 
     # 1. Run Scanners
     print(f"Starting {category} scan for {target}...")
-    subprocess.run(
-        ["docker", "compose", "-f", COMPOSE_FILE, "--profile", category, "up", "--abort-on-container-exit"],
-        env=env_vars,
-        check=True
-    )
+    try:
+        subprocess.run(
+            ["docker", "compose", "-f", COMPOSE_FILE, "--profile", category, "up", "--abort-on-container-exit"],
+            env=env_vars,
+            check=True,
+            capture_output=True,
+            text=True
+        )
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Scan failed (code {e.returncode}):\nSTDOUT: {e.stdout}\nSTDERR: {e.stderr}")
 
     # 2. Run Merge
     print("Merging results...")
-    subprocess.run(
-        ["docker", "compose", "-f", COMPOSE_FILE, "run", "--rm", "merge"],
-        env=env_vars,
-        check=True
-    )
+    try:
+        subprocess.run(
+            ["docker", "compose", "-f", COMPOSE_FILE, "run", "--rm", "merge"],
+            env=env_vars,
+            check=True,
+            capture_output=True,
+            text=True
+        )
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Merge failed (code {e.returncode}):\nSTDOUT: {e.stdout}\nSTDERR: {e.stderr}")
 
     return uid
