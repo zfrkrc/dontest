@@ -272,7 +272,7 @@ function App() {
                     )}
 
                     {!isScanning && scanResult && (
-                      <div className="mt-5 p-4 border rounded shadow-sm" style={{ backgroundColor: '#fff', borderLeft: '5px solid #232323' }}>
+                      <div id="scan-results" className="mt-5 p-4 border rounded shadow-sm" style={{ backgroundColor: '#fff', borderLeft: '5px solid #232323' }}>
                         <div className="d-flex justify-content-between align-items-center mb-3">
                           <h3 className="mbr-fonts-style display-5 mb-0"><strong>Scan Results</strong></h3>
                           <span className="badge bg-dark p-2">{scanResult.time}</span>

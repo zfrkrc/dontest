@@ -36,6 +36,9 @@ const Navbar = () => {
                                 <a className="nav-link link text-black show text-primary display-4" href="https://zaferkaraca.net/#testimonials-8-uSrJKo6yl4" aria-expanded="false">Hakkımızda</a>
                             </li>
                             <li className="nav-item">
+                                <a className="nav-link link text-black show text-primary display-4" href="#scan-results">Raporlar</a>
+                            </li>
+                            <li className="nav-item">
                                 <a className="nav-link link text-black show text-primary display-4" href="https://postaci.zaferkaraca.net">Posta Hizmeti</a>
                             </li>
                             <li className="nav-item dropdown">
