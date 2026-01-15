@@ -45,7 +45,7 @@ services:
     network_mode: bridge
 
   wpscan:
-    image: wpscan/wpscan
+    image: wpscanteam/wpscan
     profiles: [ "gray" ]
     command: --url ${TARGET} --format json -o /data/wpscan.json --disable-tls-checks
     volumes:
@@ -64,9 +64,9 @@ services:
     network_mode: bridge
 
   sslyze:
-    image: nablas/sslyze
+    image: python:3.9-slim
     profiles: [ "gray" ]
-    command: --json_out=/data/sslyze.json ${TARGET}
+    command: sh -c "pip install sslyze && sslyze --json_out=/data/sslyze.json ${TARGET}"
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
