@@ -94,17 +94,46 @@ function App() {
 
   const downloadCSV = () => {
     if (!scanResult) return;
-    const header = "ID,Title,Severity,Description\n";
-    const body = scanResult.findings.map(f => `${f.id},"${f.title}","${f.severity}","${f.description}"`).join("\n");
-    const blob = new Blob([header + body], { type: 'text/csv' });
+
+    // Calculate total vulnerabilities
+    const totalVulns = scanResult.vulnerabilities.reduce((sum, v) => sum + v.count, 0);
+
+    // Create comprehensive CSV with metadata
+    const metadata = [
+      "PENTAAS ONECLICK - SECURITY SCAN REPORT",
+      "",
+      "SCAN INFORMATION",
+      `Target,${scanResult.ip}`,
+      `Scan Mode,${scanResult.mode.toUpperCase()} BOX`,
+      `Scan Time,${scanResult.time}`,
+      `Total Vulnerabilities,${totalVulns}`,
+      "",
+      "VULNERABILITY SUMMARY",
+      `Critical,${scanResult.vulnerabilities.find(v => v.severity === 'Critical')?.count || 0}`,
+      `High,${scanResult.vulnerabilities.find(v => v.severity === 'High')?.count || 0}`,
+      `Medium,${scanResult.vulnerabilities.find(v => v.severity === 'Medium')?.count || 0}`,
+      `Low,${scanResult.vulnerabilities.find(v => v.severity === 'Low')?.count || 0}`,
+      "",
+      "DETAILED FINDINGS",
+      "ID,Title,Severity,Description"
+    ].join("\n");
+
+    const body = scanResult.findings.map(f =>
+      `${f.id},"${f.title}","${f.severity}","${f.description}"`
+    ).join("\n");
+
+    const csvContent = metadata + "\n" + body;
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.setAttribute('hidden', '');
     a.setAttribute('href', url);
-    a.setAttribute('download', `report_${target}_${new Date().getTime()}.csv`);
+    a.setAttribute('download', `pentaas_scan_report_${scanResult.ip.replace(/\./g, '_')}_${scanResult.mode}_${new Date().getTime()}.csv`);
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   };
 
 
