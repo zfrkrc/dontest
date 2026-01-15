@@ -6,5 +6,5 @@ services:
     container_name: pentaas_merge
     # Env vars are passed via -e flags in engine.py
     volumes:
-      - ./reports:/app/reports
+      - ${HOST_REPORTS_PATH}:/app/reports
     network_mode: bridge
