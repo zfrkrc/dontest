@@ -25,9 +25,9 @@ services:
     network_mode: bridge
 
   nikto_white:
-    image: sullo/nikto
+    image: debian:bookworm-slim
     profiles: [ "white" ]
-    command: -h ${TARGET} -o /data/nikto_white.json
+    command: sh -c "apt-get update && apt-get install -y nikto && nikto -h ${TARGET} -o /data/nikto_white.json"
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -86,9 +86,9 @@ services:
     network_mode: bridge
 
   nikto_black:
-    image: sullo/nikto
+    image: debian:bookworm-slim
     profiles: [ "black" ]
-    command: -h ${TARGET} -o /data/nikto_black.json
+    command: sh -c "apt-get update && apt-get install -y nikto && nikto -h ${TARGET} -o /data/nikto_black.json"
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
