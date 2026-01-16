@@ -60,8 +60,8 @@ async def create_scan(req: ScanRequest):
         # Generate UID here so we can return it immediately
         uid = uuid.uuid4().hex
         
-        # Enqueue the scan job to RQ
-        job = q.enqueue(run_scan, req.ip, req.category, uid)
+        # Enqueue the scan job to RQ with 30 minute timeout
+        job = q.enqueue(run_scan, req.ip, req.category, uid, job_timeout=1800)
         logger.info(f"Enqueued scan job {job.id} for target {req.ip}, UID: {uid}")
         
         return {
