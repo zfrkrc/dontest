@@ -1,5 +1,6 @@
 """
 Scan Engine - Parallel execution using docker compose run
+Stores logs and results in Redis instead of filesystem.
 """
 import subprocess
 import uuid
@@ -9,11 +10,17 @@ import asyncio
 import time
 from datetime import datetime
 import logging
+from redis import Redis
 
 logger = logging.getLogger(__name__)
 
+# Redis Connection
+REDIS_HOST = os.getenv("REDIS_HOST", "redis")
+redis_client = Redis(host=REDIS_HOST, port=6379, db=0, decode_responses=True)
+
 BASE_DIR = "/app"
 COMPOSE_FILE = f"{BASE_DIR}/compose/docker-compose.string.yml"
+# We still need a temp dir for docker volumes, but we won't rely on it for persistent storage
 REPORT_DIR = f"{BASE_DIR}/reports"
 
 # Define services for each profile
@@ -23,19 +30,62 @@ PROFILE_SERVICES = {
     "black": ["nmap_black", "nikto_black", "nuclei"]
 }
 
+# Output file mapping (Service Name -> Output Filename)
+# Only needed for reading the file to save to Redis
+OUTPUT_MAPPING = {
+    "nmap_white": "nmap_white.xml",
+    "nmap_gray": "nmap_gray.xml",
+    "nmap_black": "nmap_black.xml",
+    "nuclei": "nuclei.json",
+    "nuclei_white": "nuclei_white.json",
+    "nikto_black": "nikto_black.json",
+    "nikto_white": "nikto_white.json",
+    "wpscan": "wpscan.json",
+    "zap": "zap.json",
+    "sslyze": "sslyze.json",
+    "testssl": "testssl.json",
+    "dirsearch": "dirsearch.json",
+    "whatweb": "whatweb.json",
+    "arjun": "arjun.json",
+    "dalfox": "dalfox.json",
+    "wafw00f": "wafw00f.json",
+    "dnsrecon": "dnsrecon.json"
+}
 
 def log_scan(uid: str, message: str):
-    """Log scan progress to a file"""
-    log_file = f"{REPORT_DIR}/{uid}/data/scan.log"
+    """Log scan progress to Redis"""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_entry = f"[{timestamp}] {message}"
+    
     try:
-        with open(log_file, "a") as f:
-            f.write(f"[{timestamp}] {message}\n")
+        # Push to Redis list
+        redis_client.rpush(f"scan:{uid}:logs", log_entry)
+        # Set expire for logs (1 hour)
+        redis_client.expire(f"scan:{uid}:logs", 3600)
     except Exception as e:
-        logger.error(f"Failed to write log: {e}")
+        print(f"Redis Log Error: {e}")
     
     print(f"[{uid}] {message}")
 
+def save_result_to_redis(uid: str, service_name: str, host_data_dir_internal: str):
+    """Read output file and save to Redis"""
+    filename = OUTPUT_MAPPING.get(service_name)
+    if not filename:
+        return
+
+    filepath = os.path.join(host_data_dir_internal, filename)
+    if os.path.exists(filepath):
+        try:
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+                
+            if content:
+                # Save to Redis: scan:{uid}:result:{service_name}
+                redis_client.set(f"scan:{uid}:result:{service_name}", content)
+                redis_client.expire(f"scan:{uid}:result:{service_name}", 3600) # 1 hour TTL
+                log_scan(uid, f"💾 {service_name} results saved to Redis ({len(content)} bytes)")
+        except Exception as e:
+            log_scan(uid, f"⚠️ Failed to save {service_name} results to Redis: {e}")
 
 async def run_service_async(service_name: str, env_vars: dict, uid: str) -> tuple:
     """Run a single service asynchronously using docker compose with timeout and live logging"""
@@ -80,6 +130,8 @@ async def run_service_async(service_name: str, env_vars: dict, uid: str) -> tupl
             duration = time.time() - start_time
             if process.returncode == 0:
                 log_scan(uid, f"✅ {service_name} completed in {duration:.1f}s")
+                # Save result to Redis
+                save_result_to_redis(uid, service_name, f"{REPORT_DIR}/{uid}/data")
                 return (service_name, True, None)
             else:
                 log_scan(uid, f"❌ {service_name} failed with code {process.returncode}")
@@ -93,7 +145,9 @@ async def run_service_async(service_name: str, env_vars: dict, uid: str) -> tupl
                 pass
             duration = time.time() - start_time
             log_scan(uid, f"⏱️ {service_name} timed out after {duration:.1f}s - Forcefully stopped")
-            return (service_name, False, "Operation timed out")
+            # Try to save whatever result exists
+            save_result_to_redis(uid, service_name, f"{REPORT_DIR}/{uid}/data")
+            return (service_name, True, "Timeout (Partial results saved)")
             
     except Exception as e:
         duration = time.time() - start_time
@@ -126,6 +180,11 @@ async def run_all_services_parallel(services: list, env_vars: dict, uid: str):
     failed = len(results) - successful
     
     log_scan(uid, f"📊 Summary: {successful} succeeded, {failed} failed")
+    
+    # Set completion status in Redis
+    redis_client.set(f"scan:{uid}:status", "completed")
+    redis_client.expire(f"scan:{uid}:status", 3600)
+    
     return results
 
 
@@ -134,7 +193,7 @@ def run_scan(target: str, category: str, uid: str = None) -> str:
     if not uid:
         uid = uuid.uuid4().hex
     
-    # Internal path (container view)
+    # Internal path (container view) - Still needed for docker mounts
     data_dir_internal = f"{REPORT_DIR}/{uid}/data"
     os.makedirs(data_dir_internal, exist_ok=True)
     
@@ -142,9 +201,15 @@ def run_scan(target: str, category: str, uid: str = None) -> str:
     host_reports_path = os.environ.get("HOST_REPORTS_PATH", f"{os.getcwd()}/reports")
     host_data_dir = f"{host_reports_path}/{uid}/data"
 
-    # Save metadata for UI tracking
-    with open(f"{data_dir_internal}/meta.json", "w") as f:
-        json.dump({"target": target, "category": category, "uid": uid}, f)
+    # Save metadata to REDIS
+    redis_client.hmset(f"scan:{uid}:meta", {
+        "target": target,
+        "category": category,
+        "uid": uid,
+        "status": "running",
+        "started_at": datetime.now().isoformat()
+    })
+    redis_client.expire(f"scan:{uid}:meta", 3600)
 
     # Sanitize and parse target
     target_raw = target.strip()
@@ -170,12 +235,10 @@ def run_scan(target: str, category: str, uid: str = None) -> str:
         log_scan(uid, f"💥 Scan execution failed: {str(e)}")
         raise RuntimeError(f"Scan failed: {str(e)}")
 
-    # Mark scan as completed
+    # Mark scan as completed in Redis
     log_scan(uid, f"✅ Scan completed for {target}")
-    with open(f"{data_dir_internal}/scan_summary.txt", "w") as f:
-        f.write(f"Scan completed for {target}\n")
-        f.write(f"Category: {category}\n")
-        f.write(f"UID: {uid}\n")
+    redis_client.hset(f"scan:{uid}:meta", "status", "completed")
+    redis_client.hset(f"scan:{uid}:meta", "completed_at", datetime.now().isoformat())
 
     return uid
 

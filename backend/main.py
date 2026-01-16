@@ -79,12 +79,43 @@ async def create_scan(req: ScanRequest):
 
 @app.get("/scan/{scan_id}")
 async def get_scan_status(scan_id: str):
-    """Get real-time status of all services in the scan"""
-    from engine import get_scan_status_async
-    
+    """Get real-time scan status from Redis"""
     try:
-        status = await get_scan_status_async(scan_id)
-        return status
+        # Check metadata in Redis
+        meta = redis_conn.hgetall(f"scan:{scan_id}:meta")
+        if not meta:
+            return {"status": "not_found", "scan_id": scan_id}
+        
+        status = meta.get(b"status", b"running").decode('utf-8')
+        
+        # Check individual services status from logs logic (optional, but UI uses it)
+        # We can reconstruct it from the logs in Redis
+        services_status = {}
+        logs = redis_conn.lrange(f"scan:{scan_id}:logs", 0, -1)
+        
+        for line_bytes in logs:
+            line = line_bytes.decode('utf-8')
+            if "🚀 Starting" in line:
+                parts = line.split("Starting ")
+                if len(parts) > 1:
+                    svc = parts[1].split("(")[0].strip().split("...")[0].strip()
+                    services_status[svc] = {"status": "running", "completed": False}
+            elif "✅" in line and "completed" in line:
+                parts = line.split("] ✅ ")
+                if len(parts) > 1:
+                    svc = parts[1].split(" completed")[0].strip()
+                    services_status[svc] = {"status": "completed", "completed": True}
+            elif "❌" in line and "failed" in line:
+                 parts = line.split("] ❌ ")
+                 if len(parts) > 1:
+                    svc = parts[1].split(" failed")[0].strip()
+                    services_status[svc] = {"status": "failed", "completed": True}
+
+        return {
+            "status": status,
+            "scan_id": scan_id,
+            "services": services_status
+        }
     except Exception as e:
         logger.error(f"Error getting scan status: {e}")
         return {"status": "error", "scan_id": scan_id, "error": str(e)}
@@ -92,19 +123,16 @@ async def get_scan_status(scan_id: str):
 
 @app.get("/scan/{scan_id}/logs")
 def get_scan_logs(scan_id: str):
-    """Get real-time scan logs"""
-    log_file = os.path.join(REPORT_DIR, scan_id, "data", "scan.log")
-    
-    if not os.path.exists(log_file):
-        return {"scan_id": scan_id, "logs": [], "message": "Log file not found"}
-    
+    """Get real-time scan logs from Redis"""
     try:
-        with open(log_file, 'r') as f:
-            logs = f.readlines()
-        
+        logs_bytes = redis_conn.lrange(f"scan:{scan_id}:logs", 0, -1)
+        logs = [log.decode('utf-8') for log in logs_bytes]
+        if not logs:
+             return {"scan_id": scan_id, "logs": [], "message": "No logs found"}
+             
         return {
             "scan_id": scan_id,
-            "logs": [line.strip() for line in logs],
+            "logs": logs,
             "total_lines": len(logs)
         }
     except Exception as e:
@@ -113,171 +141,58 @@ def get_scan_logs(scan_id: str):
 
 @app.get("/scan/{scan_id}/results")
 def get_scan_results(scan_id: str):
-    data_dir = os.path.join(REPORT_DIR, scan_id, "data")
-    if not os.path.exists(data_dir):
-        raise HTTPException(status_code=404, detail="Scan results not found")
-
+    """Get scan results from Redis"""
+    
+    # Get metadata for target info
+    meta_bytes = redis_conn.hgetall(f"scan:{scan_id}:meta")
+    meta = {k.decode('utf-8'): v.decode('utf-8') for k, v in meta_bytes.items()}
+    target = meta.get("target", "unknown")
+    category = meta.get("category", "unknown")
+    
     results = {
-        "findings": [],
-        "raw_files": os.listdir(data_dir),
-        "progress": {"completed": [], "pending": []}
+        "scan_id": scan_id,
+        "target": target,
+        "scan_type": category,
+        "timestamp": meta.get("started_at", datetime.now().isoformat()),
+        "findings": []
     }
 
-    # Load metadata to know which category we are in
-    meta_path = os.path.join(data_dir, "meta.json")
-    category = "white"
-    if os.path.exists(meta_path):
-        try:
-            with open(meta_path, 'r') as f:
-                meta = json.load(f)
-                category = meta.get("category", "white")
-        except Exception as e:
-            logger.error(f"Error reading meta.json: {e}")
+    # Helper to get content from Redis
+    def get_content(service_name):
+        content_bytes = redis_conn.get(f"scan:{scan_id}:result:{service_name}")
+        return content_bytes.decode('utf-8') if content_bytes else None
 
-    # Track progress
-    expected_tools = PROFILE_TOOLS.get(category, {})
-    for tool_name, filename in expected_tools.items():
-        if os.path.exists(os.path.join(data_dir, filename)):
-            results["progress"]["completed"].append(tool_name)
-        else:
-            results["progress"]["pending"].append(tool_name)
-
-
-    # Helper to parse common tool outputs
-    # 1. Nuclei (All modes)
-    for nuclei_file in ["nuclei.json", "nuclei_white.json"]:
-        nuclei_path = os.path.join(data_dir, nuclei_file)
-        if os.path.exists(nuclei_path):
-            try:
-                with open(nuclei_path, 'r') as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line: continue
-                        try:
-                            item = json.loads(line)
-                            results["findings"].append({
-                                "id": f"nuclei-{len(results['findings'])}",
-                                "title": item.get("info", {}).get("name", "Nuclei Finding"),
-                                "severity": item.get("info", {}).get("severity", "info").capitalize(),
-                                "description": item.get("info", {}).get("description", "No description provided.")
-                            })
-                        except json.JSONDecodeError:
-                            logger.error(f"Failed to parse nuclei line: {line[:100]}")
-            except Exception as e:
-                logger.error(f"Error reading nuclei file: {e}")
-
-    # 2. Nikto (Common)
-    for nikto_file in ["nikto_white.json", "nikto_black.json"]:
-        nikto_path = os.path.join(data_dir, nikto_file)
-        if os.path.exists(nikto_path):
-            try:
-                # Check if file is empty
-                if os.path.getsize(nikto_path) == 0:
-                    continue
-
-                with open(nikto_path, 'r') as f:
-                    try:
-                        data = json.load(f)
-                    except json.JSONDecodeError:
-                        continue 
-
-                    # Nikto can be a list or a dict
-                    items = []
-                    if isinstance(data, list):
-                        for entry in data:
-                            items.extend(entry.get("vulnerabilities", []))
-                    else:
-                        items = data.get("vulnerabilities", [])
-                    
-                    for item in items:
-                        results["findings"].append({
-                            "id": f"nikto-{len(results['findings'])}",
-                            "title": "Nikto Finding",
-                            "severity": "Medium",
-                            "description": item.get("msg", "Unknown finding")
-                        })
-            except Exception as e:
-                logger.error(f"Error reading nikto file: {e}")
-
-    # ... (ZAP, WPScan, Nmap, etc. skipped in diff) ...
-
-    # 8. TestSSL (Common - JSON list)
-    testssl_path = os.path.join(data_dir, "testssl.json")
-    if os.path.exists(testssl_path):
-        try:
-            if os.path.getsize(testssl_path) == 0:
-                pass
-            else:
-                with open(testssl_path, 'r') as f:
-                    try:
-                        data = json.load(f)
-                        if isinstance(data, list):
-                            for item in data:
-                                sev = item.get("severity", "INFO")
-                                sev_map = {
-                                    "FATAL": "Critical", "CRITICAL": "Critical", "HIGH": "High",
-                                    "MEDIUM": "Medium", "LOW": "Low", "WARN": "Medium",
-                                    "INFO": "Info", "OK": "Info"
-                                }
-                                mapped_sev = sev_map.get(sev, "Info")
-                                
-                                if sev in ["FATAL", "CRITICAL", "HIGH", "MEDIUM", "LOW", "WARN"]:
-                                    results["findings"].append({
-                                        "id": f"tssl-{len(results['findings'])}",
-                                        "title": f"TestSSL: {item.get('id', 'Issue')}",
-                                        "severity": mapped_sev,
-                                        "description": item.get("finding", "No description")
-                                    })
-                    except json.JSONDecodeError:
-                        pass # File likely being written
-        except Exception as e:
-            logger.error(f"Error reading testssl file: {e}")
-
-    # 11. Dalfox (XSS Scanner)
-    dalfox_path = os.path.join(data_dir, "dalfox.json")
-    if os.path.exists(dalfox_path) and os.path.getsize(dalfox_path) > 0:
-        try:
-            with open(dalfox_path, 'r') as f:
-                content = f.read().strip()
-                if not content:
+    # 1. Nuclei (Critical)
+    for nuclei_svc in ["nuclei", "nuclei_white"]:
+        content = get_content(nuclei_svc)
+        if content:
+            for line in content.splitlines():
+                if not line.strip(): continue
+                try:
+                    finding = json.loads(line)
+                    results["findings"].append({
+                        "id": f"nuc-{len(results['findings'])}",
+                        "title": finding.get("info", {}).get("name", "Unknown Vuln"),
+                        "severity": finding.get("info", {}).get("severity", "Low").capitalize(),
+                        "description": f"Template: {finding.get('template-id')}\nMatcher: {finding.get('matcher-name', 'N/A')}\nExtracted: {finding.get('extracted-results', [])}"
+                    })
+                except json.JSONDecodeError:
                     pass
-                elif content.startswith("["):
-                    # JSON Array format
-                    try:
-                        items = json.loads(content)
-                        for item in items:
-                            results["findings"].append({
-                                "id": f"dalfox-{len(results['findings'])}",
-                                "title": f"XSS Found: {item.get('type', 'Vulnerability')}",
-                                "severity": "High",
-                                "description": f"URL: {item.get('url', 'N/A')}\nParam: {item.get('param', 'N/A')}\nPoc: {item.get('poc', 'N/A')}"
-                            })
-                    except json.JSONDecodeError:
-                        pass
+
+    # 2. Nikto
+    for nikto_svc in ["nikto_white", "nikto_black"]:
+        content = get_content(nikto_svc)
+        if content:
+            try:
+                data = json.loads(content)
+                items = []
+                if isinstance(data, list):
+                    for entry in data:
+                        items.extend(entry.get("vulnerabilities", []))
                 else:
-                    # JSON Lines format
-                    for line in content.splitlines():
-                        if not line.strip(): continue
-                        try:
-                            item = json.loads(line)
-                            results["findings"].append({
-                                "id": f"dalfox-{len(results['findings'])}",
-                                "title": f"XSS Found: {item.get('type', 'Vulnerability')}",
-                                "severity": "High",
-                                "description": f"URL: {item.get('url', 'N/A')}\nParam: {item.get('param', 'N/A')}\nPoc: {item.get('poc', 'N/A')}"
-                            })
-                        except json.JSONDecodeError:
-                            pass
-        except Exception as e:
-            logger.error(f"Error reading dalfox file: {e}")
-    
-    # 10. Waf00f
-    waf_path = os.path.join(data_dir, "wafw00f.json")
-    if os.path.exists(waf_path):
-        try:
-            with open(waf_path, 'r') as f:
-                data = json.load(f)
-                for item in data:
+                    items = data.get("vulnerabilities", [])
+                
+                for item in items:
                     if item.get("firewall") != "None":
                         results["findings"].append({
                             "id": f"waf-{len(results['findings'])}",
