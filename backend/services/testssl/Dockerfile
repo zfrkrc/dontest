@@ -1,8 +1,12 @@
-﻿FROM drwetter/testssl.sh:latest
-RUN apk add --no-cache python3 py3-pip
+﻿FROM python:3.11-slim
+RUN apt-get update && \
+    apt-get install -y git ca-certificates openssl bsdmainutils dnsutils && \
+    git clone --depth 1 https://github.com/drwetter/testssl.sh.git /opt/testssl.sh && \
+    ln -s /opt/testssl.sh/testssl.sh /usr/local/bin/testssl.sh && \
+    rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY requirements.txt .
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 COPY . /app/
 EXPOSE 8000
-CMD ["python3", "service.py"]
+CMD ["python", "service.py"]
