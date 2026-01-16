@@ -106,6 +106,27 @@ def get_scan_status(scan_id: str):
     return {"status": "running", "scan_id": scan_id}
 
 
+@app.get("/scan/{scan_id}/logs")
+def get_scan_logs(scan_id: str):
+    """Get real-time scan logs"""
+    log_file = os.path.join(REPORT_DIR, scan_id, "data", "scan.log")
+    
+    if not os.path.exists(log_file):
+        return {"scan_id": scan_id, "logs": [], "message": "Log file not found"}
+    
+    try:
+        with open(log_file, 'r') as f:
+            logs = f.readlines()
+        
+        return {
+            "scan_id": scan_id,
+            "logs": [line.strip() for line in logs],
+            "total_lines": len(logs)
+        }
+    except Exception as e:
+        return {"scan_id": scan_id, "logs": [], "error": str(e)}
+
+
 @app.get("/scan/{scan_id}/results")
 def get_scan_results(scan_id: str):
     data_dir = os.path.join(REPORT_DIR, scan_id, "data")
