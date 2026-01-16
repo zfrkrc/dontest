@@ -1,4 +1,4 @@
-from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi import FastAPI, BackgroundTasks, HTTPException, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -433,3 +433,128 @@ def get_scan_results(scan_id: str):
         except: pass
 
     return results
+
+
+@app.get("/report/{scan_id}", response_class=HTMLResponse)
+async def get_scan_report_html(scan_id: str):
+    """Generate and serve a standalone HTML report for a scan"""
+    try:
+        # Reuse existing logic to get results
+        # Assuming get_scan_results is synchronous as defined in main.py
+        results_data = get_scan_results(scan_id)
+        
+        target = results_data.get("target", "Unknown")
+        scan_type = results_data.get("scan_type", "Unknown")
+        timestamp = results_data.get("timestamp", "Unknown")
+        findings = results_data.get("findings", [])
+        
+        # Calculate Severity Counts
+        counts = {"Critical": 0, "High": 0, "Medium": 0, "Low": 0, "Info": 0}
+        for f in findings:
+            sev = f.get("severity", "Info")
+            if sev in counts: counts[sev] += 1
+            else: counts["Info"] += 1
+
+        html_content = f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Scan Report - {target}</title>
+            <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+            <style>
+                body {{ background-color: #f4f6f9; }}
+                .severity-Critical {{ background-color: #dc3545; color: white; }}
+                .severity-High {{ background-color: #fd7e14; color: white; }}
+                .severity-Medium {{ background-color: #ffc107; color: black; }}
+                .severity-Low {{ background-color: #0dcaf0; color: white; }}
+                .severity-Info {{ background-color: #6c757d; color: white; }}
+                .card {{ border: none; box-shadow: 0 0.125rem 0.25rem rgba(0,0,0,0.075); margin-bottom: 20px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container py-5">
+                <div class="header d-flex justify-content-between align-items-center mb-5">
+                    <div>
+                        <h1 class="display-5 fw-bold text-dark">PentaaS OneClick Report</h1>
+                        <p class="text-muted mb-0">Scan ID: {scan_id}</p>
+                    </div>
+                    <div class="text-end">
+                        <h3 class="fw-bold">{target}</h3>
+                        <span class="badge bg-dark fs-6">{str(scan_type).upper()}</span>
+                        <span class="badge bg-secondary fs-6">{timestamp}</span>
+                    </div>
+                </div>
+
+                <!-- Summary Cards -->
+                <div class="row g-3 mb-5">
+                    <div class="col"><div class="card p-3 text-center border-top border-4 border-danger"><h3 class="text-danger fw-bold">{counts['Critical']}</h3><span class="text-muted">Critical</span></div></div>
+                    <div class="col"><div class="card p-3 text-center border-top border-4 border-warning"><h3 class="text-warning fw-bold">{counts['High']}</h3><span class="text-muted">High</span></div></div>
+                    <div class="col"><div class="card p-3 text-center border-top border-4 border-warning" style="border-color: #ffc107 !important;"><h3 class="text-dark fw-bold">{counts['Medium']}</h3><span class="text-muted">Medium</span></div></div>
+                    <div class="col"><div class="card p-3 text-center border-top border-4 border-info"><h3 class="text-info fw-bold">{counts['Low']}</h3><span class="text-muted">Low</span></div></div>
+                    <div class="col"><div class="card p-3 text-center border-top border-4 border-secondary"><h3 class="text-secondary fw-bold">{counts['Info']}</h3><span class="text-muted">Info</span></div></div>
+                </div>
+
+                <!-- Detailed Findings -->
+                <div class="card">
+                    <div class="card-header bg-white py-3">
+                        <h4 class="mb-0 fw-bold">Detailed Findings</h4>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0 align-middle">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th style="width: 100px;">Severity</th>
+                                        <th style="width: 200px;">ID</th>
+                                        <th>Finding / Title</th>
+                                        <th>Description / Info</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+        """
+        
+        if not findings:
+            html_content += '<tr><td colspan="4" class="text-center p-4">No vulnerabilities found. System appears secure.</td></tr>'
+        else:
+            for f in findings:
+                sev_class = f"severity-{f.get('severity', 'Info')}"
+                fid = f.get('id', 'N/A')
+                title = f.get('title', 'N/A')
+                desc = f.get('description', '')
+                if len(desc) > 300: desc = desc[:300] + "..."
+                
+                # HTML Escape (simple)
+                title = str(title).replace("<", "&lt;").replace(">", "&gt;")
+                desc = str(desc).replace("<", "&lt;").replace(">", "&gt;").replace("\\n", "<br>")
+
+                html_content += f"""
+                <tr>
+                    <td><span class="badge {sev_class} w-100 py-2">{f.get('severity', 'Info')}</span></td>
+                    <td class="text-secondary small">{fid}</td>
+                    <td class="fw-bold">{title}</td>
+                    <td class="text-muted small">{desc}</td>
+                </tr>
+                """
+
+        html_content += """
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-5 text-muted">
+                    <small>Generated by PentaaS OneClick Scanner | Zafer Karaca</small>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return HTMLResponse(content=html_content, status_code=200)
+
+    except Exception as e:
+        logger.error(f"Error generating report: {e}")
+        return HTMLResponse(content=f"<h1>Error generating report</h1><p>{str(e)}</p>", status_code=500)

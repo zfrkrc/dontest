@@ -99,9 +99,9 @@ function History() {
                                         <td className="p-3 text-end">
                                             <button
                                                 className="btn btn-sm btn-primary"
-                                                onClick={() => downloadReport(scan.scan_id, scan.target)}
+                                                onClick={() => window.open(`/api/report/${scan.scan_id}`, '_blank')}
                                             >
-                                                Download CSV
+                                                View Report
                                             </button>
                                         </td>
                                     </tr>
