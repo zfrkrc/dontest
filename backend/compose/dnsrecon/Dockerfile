@@ -4,7 +4,7 @@ RUN apt-get update && \
     apt-get install -y git && \
     git clone https://github.com/darkoperator/dnsrecon.git /opt/dnsrecon && \
     cd /opt/dnsrecon && \
-    pip install -r requirements.txt && \
+    pip install dnspython netaddr lxml && \
     apt-get remove -y git && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
