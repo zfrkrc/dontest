@@ -39,11 +39,11 @@ def log_scan(uid: str, message: str):
 
 async def run_service_async(service_name: str, env_vars: dict, uid: str) -> tuple:
     """Run a single service asynchronously using docker compose with timeout"""
-    log_scan(uid, f"🚀 Starting {service_name}...")
-    start_time = time.time()
+    # Timeout settings: 3 minutes (180s)
+    SERVICE_TIMEOUT = 180 
     
-    # Set timeout for each service (e.g., 20 minutes)
-    SERVICE_TIMEOUT = 1200 
+    log_scan(uid, f"🚀 Starting {service_name} (Timeout: {SERVICE_TIMEOUT}s)...")
+    start_time = time.time()
     
     try:
         # Run service using docker compose run
@@ -64,15 +64,19 @@ async def run_service_async(service_name: str, env_vars: dict, uid: str) -> tupl
                 log_scan(uid, f"✅ {service_name} completed in {duration:.1f}s")
                 return (service_name, True, None)
             else:
-                error_msg = stderr.decode()[:200] if stderr else "Unknown error"
+                # Capture stderr or stdout for error
+                error_msg = stderr.decode()[:200] if stderr else stdout.decode()[:200] if stdout else "Unknown error"
                 log_scan(uid, f"❌ {service_name} failed: {error_msg}")
                 return (service_name, False, error_msg)
                 
         except asyncio.TimeoutError:
-            process.kill()
-            await process.wait()
+            try:
+                process.kill()
+                await process.wait()
+            except:
+                pass
             duration = time.time() - start_time
-            log_scan(uid, f"⏱️ {service_name} timed out after {duration:.1f}s")
+            log_scan(uid, f"⏱️ {service_name} timed out after {duration:.1f}s - Forcefully stopped")
             return (service_name, False, "Operation timed out")
             
     except Exception as e:
