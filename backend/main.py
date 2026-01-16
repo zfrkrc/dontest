@@ -106,6 +106,7 @@ def get_scan_results(scan_id: str):
 
     # Track progress
     expected_tools = PROFILE_TOOLS.get(category, {})
+    for tool_name, filename in expected_tools.items():
         if os.path.exists(os.path.join(data_dir, filename)):
             results["progress"]["completed"].append(tool_name)
         else:
