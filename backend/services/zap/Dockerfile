@@ -4,8 +4,8 @@ RUN apt-get update && \
     apt-get install -y default-jre wget ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-RUN wget --no-check-certificate -O /tmp/zap.tar.gz https://github.com/zaproxy/zaproxy/releases/download/v2.15.0/ZAP_2.15.0_Linux.tar.gz && \
-    mkdir -p /opt/zap && \
+RUN wget --no-check-certificate -O /tmp/zap.tar.gz https://github.com/zaproxy/zaproxy/releases/download/v2.17.0/ZAP_2.17.0_Linux.tar.gz && \
+    mkdir -p /opt && \
     tar -xzf /tmp/zap.tar.gz -C /opt && \
     mv /opt/ZAP_* /opt/zap && \
     rm /tmp/zap.tar.gz
