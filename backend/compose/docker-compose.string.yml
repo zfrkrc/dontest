@@ -19,7 +19,7 @@ services:
 
   dirsearch:
     build:
-      context: ./dirsearch
+      context: ../services/dirsearch
       dockerfile: Dockerfile
     profiles: [ "white" ]
     # -q: quiet mode to avoid log flooding
@@ -30,18 +30,18 @@ services:
 
   nikto_white:
     build:
-      context: ./nikto
+      context: ../services/nikto
       dockerfile: Dockerfile
     profiles: [ "white" ]
-    # -Plugins +: adds all default plus extra, -Tuning 123b: specific categories (interesting files, misconfigs)
-    command: -h ${TARGET_URL} -o /data/nikto_white.json -Plugins @@ALL -Tuning 123b
+    # Nikto with JSON output format
+    command: -h ${TARGET_URL} -o /data/nikto_white.json -Format json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
 
   whatweb:
     build:
-      context: ./whatweb
+      context: ../services/whatweb
       dockerfile: Dockerfile
     profiles: [ "white" ]
     command: --log-json /data/whatweb.json ${TARGET_URL}
@@ -50,7 +50,9 @@ services:
     network_mode: bridge
 
   nuclei_white:
-    image: projectdiscovery/nuclei
+    build:
+      context: ../services/nuclei
+      dockerfile: Dockerfile
     profiles: [ "white" ]
     # Focus on non-intrusive tech detection and exposures
     command: -u ${TARGET_URL} -tags exposures,tech-detect -jsonl -o /data/nuclei_white.json
@@ -60,7 +62,7 @@ services:
 
   arjun:
     build:
-      context: ./arjun
+      context: ../services/arjun
       dockerfile: Dockerfile
     profiles: [ "white" ]
     # Ensure protocol is present for Arjun
@@ -71,7 +73,7 @@ services:
 
   dalfox:
     build:
-      context: ./dalfox
+      context: ../services/dalfox
       dockerfile: Dockerfile
     profiles: [ "white" ]
     # Ensure protocol is present for Dalfox
@@ -82,7 +84,7 @@ services:
 
   wafw00f:
     build:
-      context: ./wafw00f
+      context: ../services/wafw00f
       dockerfile: Dockerfile
     profiles: [ "white" ]
     command: ${TARGET_URL} -f json -o /data/wafw00f.json
@@ -92,7 +94,7 @@ services:
 
   dnsrecon:
     build:
-      context: ./dnsrecon
+      context: ../services/dnsrecon
       dockerfile: Dockerfile
     profiles: [ "white" ]
     command: -d ${TARGET_DOMAIN} --json /data/dnsrecon.json
@@ -111,7 +113,7 @@ services:
 
   wpscan:
     build:
-      context: ./wpscan
+      context: ../services/wpscan
       dockerfile: Dockerfile
     profiles: [ "gray" ]
     # Simple command since entrypoint is set in Dockerfile
@@ -121,7 +123,9 @@ services:
     network_mode: bridge
 
   zap:
-    image: zaproxy/zap-stable
+    build:
+      context: ../services/zap
+      dockerfile: Dockerfile
     profiles: [ "gray" ]
     user: root
     # ZAP baseline script expects output in /zap/wrk/ by default when mapped.
@@ -133,7 +137,7 @@ services:
 
   sslyze:
     build:
-      context: ./sslyze
+      context: ../services/sslyze
       dockerfile: Dockerfile
     profiles: [ "gray" ]
     # Command is now just the arguments, entrypoint is in Dockerfile
@@ -152,7 +156,9 @@ services:
     network_mode: bridge
 
   nuclei:
-    image: projectdiscovery/nuclei
+    build:
+      context: ../services/nuclei
+      dockerfile: Dockerfile
     profiles: [ "black" ]
     command: -u ${TARGET_URL} -jsonl -o /data/nuclei.json
     volumes:
@@ -161,10 +167,10 @@ services:
 
   nikto_black:
     build:
-      context: ./nikto
+      context: ../services/nikto
       dockerfile: Dockerfile
     profiles: [ "black" ]
-    command: -h ${TARGET_URL} -o /data/nikto_black.json
+    command: -h ${TARGET_URL} -o /data/nikto_black.json -Format json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
