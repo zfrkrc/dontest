@@ -324,6 +324,23 @@ def get_scan_results(scan_id: str):
                         })
         except: pass
 
+    # 11. Dalfox (XSS Scanner)
+    dalfox_path = os.path.join(data_dir, "dalfox.json")
+    if os.path.exists(dalfox_path):
+        try:
+            with open(dalfox_path, 'r') as f:
+                # Dalfox can produce multiple lines of JSON
+                for line in f:
+                    if not line.strip(): continue
+                    item = json.loads(line)
+                    results["findings"].append({
+                        "id": f"dalfox-{len(results['findings'])}",
+                        "title": f"XSS Found: {item.get('type', 'Vulnerability')}",
+                        "severity": "High",
+                        "description": f"URL: {item.get('url', 'N/A')}\nParam: {item.get('param', 'N/A')}\nPoc: {item.get('poc', 'N/A')}"
+                    })
+        except: pass
+
     # Placeholder for counts if findings empty
     if not results["findings"]:
         # Check if we at least have files but no findings

@@ -22,7 +22,8 @@ services:
       context: ./dirsearch
       dockerfile: Dockerfile
     profiles: [ "white" ]
-    command: -u ${TARGET} --format=json -o /data/dirsearch.json
+    # -q: quiet mode to avoid log flooding
+    command: -u ${TARGET} --format=json -o /data/dirsearch.json -q
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -64,6 +65,17 @@ services:
     profiles: [ "white" ]
     # Finds hidden parameters in the target
     command: -u ${TARGET} -oJ /data/arjun.json
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  dalfox:
+    build:
+      context: ./dalfox
+      dockerfile: Dockerfile
+    profiles: [ "white" ]
+    # -o: output file, --format: json
+    command: url ${TARGET} --output /data/dalfox.json --format json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
