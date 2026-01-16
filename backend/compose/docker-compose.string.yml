@@ -100,7 +100,7 @@ services:
   nmap_gray:
     image: instrumentisto/nmap
     profiles: [ "gray" ]
-    command: -sV -sC -oX /data/nmap_gray.xml ${TARGET}
+    command: -sV -sC -oX /data/nmap_gray.xml ${TARGET_DOMAIN}
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -111,7 +111,7 @@ services:
       dockerfile: Dockerfile
     profiles: [ "gray" ]
     # Simple command since entrypoint is set in Dockerfile
-    command: --url ${TARGET} --format json -o /data/wpscan.json --disable-tls-checks
+    command: --url ${TARGET_URL} --format json -o /data/wpscan.json --disable-tls-checks
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -122,7 +122,7 @@ services:
     user: root
     # ZAP baseline script expects output in /zap/wrk/ by default when mapped.
     # Using absolute path inside container to be safe.
-    command: zap-baseline.py -t http://${TARGET} -J /zap/wrk/zap.json
+    command: zap-baseline.py -t ${TARGET_URL} -J /zap/wrk/zap.json
     volumes:
       - ${HOST_DATA_DIR}:/zap/wrk
     network_mode: bridge
@@ -133,7 +133,7 @@ services:
       dockerfile: Dockerfile
     profiles: [ "gray" ]
     # Command is now just the arguments, entrypoint is in Dockerfile
-    command: --json_out=/data/sslyze.json ${TARGET}
+    command: --json_out=/data/sslyze.json ${TARGET_DOMAIN}
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -142,7 +142,7 @@ services:
   nmap_black:
     image: instrumentisto/nmap
     profiles: [ "black" ]
-    command: -A -oX /data/nmap_black.xml ${TARGET}
+    command: -A -oX /data/nmap_black.xml ${TARGET_DOMAIN}
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -150,7 +150,7 @@ services:
   nuclei:
     image: projectdiscovery/nuclei
     profiles: [ "black" ]
-    command: -u http://${TARGET} -jsonl -o /data/nuclei.json
+    command: -u ${TARGET_URL} -jsonl -o /data/nuclei.json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -160,7 +160,7 @@ services:
       context: ./nikto
       dockerfile: Dockerfile
     profiles: [ "black" ]
-    command: -h ${TARGET} -o /data/nikto_black.json
+    command: -h ${TARGET_URL} -o /data/nikto_black.json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -174,12 +174,12 @@ services:
       - sh
       - -c
       - |
-        echo "Scan Summary for ${TARGET}" > /app/reports/session/data/scan_summary.txt
+        echo "Scan Summary for ${TARGET_URL}" > /app/reports/session/data/scan_summary.txt
         echo "Timestamp: $(date)" >> /app/reports/session/data/scan_summary.txt
         echo "Files found:" >> /app/reports/session/data/scan_summary.txt
         ls -1 /app/reports/session/data >> /app/reports/session/data/scan_summary.txt
     volumes:
       - ${HOST_DATA_DIR}:/app/reports/session/data
     environment:
-      - TARGET=${TARGET}
+      - TARGET_URL=${TARGET_URL}
     network_mode: bridge
