@@ -77,7 +77,7 @@ Sistemin çalışması için `/var/run/docker.sock` dosyasının backend konteyn
 ## 5. Kullanım (Usage)
 
 1.  Arayüzü açın: `http://localhost` (veya sunucu IP adresiniz).
-2.  **Target** kısmına hedef IP veya alan adını girin (Örn: `example.com`).
+2.  **Target** kısmına hedef IP veya alan adını girin (Örn: `zaferkaraca.net` veya `192.168.1.1`).
 3.  **Profile** kısmından (White, Gray, Black) birini seçin.
 4.  **Start Scan** butonuna basın.
 5.  Tarama tamamlandığında **Reports** sekmesinden zafiyet detaylarını inceleyin ve ham veri dosyalarına erişin.
