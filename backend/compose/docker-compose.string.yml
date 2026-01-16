@@ -53,7 +53,7 @@ services:
     image: projectdiscovery/nuclei
     profiles: [ "white" ]
     # Focus on non-intrusive tech detection and exposures
-    command: -u ${TARGET} -tags exposures,tech-detect -json -o /data/nuclei_white.json
+    command: -u http://${TARGET} -tags exposures,tech-detect -jsonl -o /data/nuclei_white.json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -63,8 +63,8 @@ services:
       context: ./arjun
       dockerfile: Dockerfile
     profiles: [ "white" ]
-    # Finds hidden parameters in the target
-    command: -u ${TARGET} -oJ /data/arjun.json
+    # Ensure protocol is present for Arjun
+    command: -u http://${TARGET} -oJ /data/arjun.json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -74,8 +74,8 @@ services:
       context: ./dalfox
       dockerfile: Dockerfile
     profiles: [ "white" ]
-    # -o: output file, --format: json
-    command: url ${TARGET} --output /data/dalfox.json --format json
+    # Ensure protocol is present for Dalfox
+    command: url http://${TARGET} --output /data/dalfox.json --format json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -134,7 +134,7 @@ services:
   nuclei:
     image: projectdiscovery/nuclei
     profiles: [ "black" ]
-    command: -u ${TARGET} -json -o /data/nuclei.json
+    command: -u http://${TARGET} -jsonl -o /data/nuclei.json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
