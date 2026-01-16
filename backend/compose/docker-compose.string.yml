@@ -81,7 +81,9 @@ services:
     network_mode: bridge
 
   wafw00f:
-    image: enablesecurity/wafw00f
+    build:
+      context: ./wafw00f
+      dockerfile: Dockerfile
     profiles: [ "white" ]
     command: ${TARGET_URL} -f json -o /data/wafw00f.json
     volumes:
@@ -89,7 +91,9 @@ services:
     network_mode: bridge
 
   dnsrecon:
-    image: darkoperator/dnsrecon
+    build:
+      context: ./dnsrecon
+      dockerfile: Dockerfile
     profiles: [ "white" ]
     command: -d ${TARGET_DOMAIN} --json /data/dnsrecon.json
     volumes:
