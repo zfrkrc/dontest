@@ -1,100 +1,113 @@
-import os
-import json
-import uuid
-import xml.etree.ElementTree as ET
-import logging
-from typing import List, Dict, Any
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, BackgroundTasks, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from engine import run_scan, REPORT_DIR
-import redis
-from rq import Queue
+from typing import List, Optional
+import os
+import uuid
+import json
+import logging
+from redis import Redis
+from datetime import datetime
+import xml.etree.ElementTree as ET
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# RQ Setup
-redis_url = os.getenv('REDIS_URL', 'redis://redis:6379')
-redis_conn = redis.from_url(redis_url)
-q = Queue(connection=redis_conn)
+# App initialization
+app = FastAPI(title="PentaaS OneClick Scanners")
 
-app = FastAPI()
+# CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-PROFILE_TOOLS = {
-    "white": {
-        "Nmap": "nmap_white.xml",
-        "TestSSL": "testssl.json",
-        "Dirsearch": "dirsearch.json",
-        "Nikto": "nikto_white.json",
-        "WhatWeb": "whatweb.json",
-        "Nuclei": "nuclei_white.json",
-        "Arjun": "arjun.json",
-        "Dalfox": "dalfox.json",
-        "Wafw00f": "wafw00f.json",
-        "DNSRecon": "dnsrecon.json"
-    },
-    "gray": {
-        "Nmap": "nmap_gray.xml",
-        "WPScan": "wpscan.json",
-        "ZAP Baseline": "zap.json",
-        "SSLyze": "sslyze.json"
-    },
-    "black": {
-        "Nmap": "nmap_black.xml",
-        "Nuclei": "nuclei.json",
-        "Nikto": "nikto_black.json"
-    }
-}
+# Redis Connection
+REDIS_HOST = os.getenv("REDIS_HOST", "redis")
+try:
+    redis_conn = Redis(host=REDIS_HOST, port=6379, db=0, decode_responses=True)
+except Exception as e:
+    logger.error(f"Failed to connect to Redis: {e}")
+    redis_conn = None
 
+# Directories (kept for legacy references or temp storage if needed)
+BASE_DIR = "/app"
+REPORT_DIR = f"{BASE_DIR}/reports"
 
-
+# Pydantic Models
 class ScanRequest(BaseModel):
-    ip: str
-    category: str
+    target: str
+    scan_type: str  # white, gray, black
+
+class ScanResponse(BaseModel):
+    message: str
+    scan_id: str
+    status: str
 
 
-@app.post("/scan")
-async def create_scan(req: ScanRequest):
+@app.get("/")
+def read_root():
+    return {"message": "PentaaS OneClick Scanner API is Ready"}
+
+
+@app.post("/scan", response_model=ScanResponse)
+async def create_scan(scan: ScanRequest, background_tasks: BackgroundTasks):
+    """
+    Start a new scan.
+    Enqueues the scan task to RQ worker.
+    """
+    from worker import queue_scan  # Deferred import to avoid circular dependency
+    
+    scan_id = uuid.uuid4().hex
+    
+    # Save initial metadata to Redis immediately
+    if redis_conn:
+        redis_conn.hmset(f"scan:{scan_id}:meta", {
+            "target": scan.target,
+            "category": scan.scan_type,
+            "uid": scan_id,
+            "status": "queued",
+            "started_at": datetime.now().isoformat()
+        })
+        redis_conn.expire(f"scan:{scan_id}:meta", 3600)
+
     try:
-        # Generate UID here so we can return it immediately
-        uid = uuid.uuid4().hex
-        
-        # Enqueue the scan job to RQ with 30 minute timeout
-        job = q.enqueue(run_scan, req.ip, req.category, uid, job_timeout=1800)
-        logger.info(f"Enqueued scan job {job.id} for target {req.ip}, UID: {uid}")
+        # Enqueue task
+        job = queue_scan(scan.target, scan.scan_type, scan_id)
         
         return {
-            "status": "started",
-            "scan_id": uid,
-            "job_id": job.id
+            "message": "Scan started successfully",
+            "scan_id": scan_id,
+            "status": "queued"
         }
     except Exception as e:
-        logger.error(f"Error starting scan job: {e}")
-        raise HTTPException(
-            status_code=400,
-            detail=str(e)
-        )
+        logger.error(f"Failed to queue scan: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/scan/{scan_id}")
 async def get_scan_status(scan_id: str):
     """Get real-time scan status from Redis"""
+    if not redis_conn:
+         return {"status": "error", "message": "Redis unavailable"}
+
     try:
         # Check metadata in Redis
         meta = redis_conn.hgetall(f"scan:{scan_id}:meta")
         if not meta:
             return {"status": "not_found", "scan_id": scan_id}
         
-        status = meta.get(b"status", b"running").decode('utf-8')
+        status = meta.get("status", "running")
         
-        # Check individual services status from logs logic (optional, but UI uses it)
-        # We can reconstruct it from the logs in Redis
+        # Check individual services status from logs logic
         services_status = {}
         logs = redis_conn.lrange(f"scan:{scan_id}:logs", 0, -1)
         
-        for line_bytes in logs:
-            line = line_bytes.decode('utf-8')
+        for line in logs:
             if "🚀 Starting" in line:
                 parts = line.split("Starting ")
                 if len(parts) > 1:
@@ -124,9 +137,11 @@ async def get_scan_status(scan_id: str):
 @app.get("/scan/{scan_id}/logs")
 def get_scan_logs(scan_id: str):
     """Get real-time scan logs from Redis"""
+    if not redis_conn:
+         return {"logs": [], "error": "Redis unavailable"}
+
     try:
-        logs_bytes = redis_conn.lrange(f"scan:{scan_id}:logs", 0, -1)
-        logs = [log.decode('utf-8') for log in logs_bytes]
+        logs = redis_conn.lrange(f"scan:{scan_id}:logs", 0, -1)
         if not logs:
              return {"scan_id": scan_id, "logs": [], "message": "No logs found"}
              
@@ -136,16 +151,18 @@ def get_scan_logs(scan_id: str):
             "total_lines": len(logs)
         }
     except Exception as e:
+        logger.error(f"Error getting logs: {e}")
         return {"scan_id": scan_id, "logs": [], "error": str(e)}
 
 
 @app.get("/scan/{scan_id}/results")
 def get_scan_results(scan_id: str):
     """Get scan results from Redis"""
-    
+    if not redis_conn:
+        raise HTTPException(status_code=500, detail="Redis unavailable")
+
     # Get metadata for target info
-    meta_bytes = redis_conn.hgetall(f"scan:{scan_id}:meta")
-    meta = {k.decode('utf-8'): v.decode('utf-8') for k, v in meta_bytes.items()}
+    meta = redis_conn.hgetall(f"scan:{scan_id}:meta")
     target = meta.get("target", "unknown")
     category = meta.get("category", "unknown")
     
@@ -159,8 +176,7 @@ def get_scan_results(scan_id: str):
 
     # Helper to get content from Redis
     def get_content(service_name):
-        content_bytes = redis_conn.get(f"scan:{scan_id}:result:{service_name}")
-        return content_bytes.decode('utf-8') if content_bytes else None
+        return redis_conn.get(f"scan:{scan_id}:result:{service_name}")
 
     # 1. Nuclei (Critical)
     for nuclei_svc in ["nuclei", "nuclei_white"]:
@@ -193,56 +209,189 @@ def get_scan_results(scan_id: str):
                     items = data.get("vulnerabilities", [])
                 
                 for item in items:
-                    if item.get("firewall") != "None":
-                        results["findings"].append({
-                            "id": f"waf-{len(results['findings'])}",
-                            "title": f"WAF Detected: {item.get('firewall')}",
-                            "severity": "Info",
-                            "description": f"Target is protected by {item.get('firewall')} ({item.get('manufacturer', 'N/A')})"
-                        })
-        except Exception as e:
-            logger.error(f"Error reading wafw00f file: {e}")
-
-    # 11. DNSRecon
-    dns_path = os.path.join(data_dir, "dnsrecon.json")
-    if os.path.exists(dns_path):
-        try:
-            with open(dns_path, 'r') as f:
-                data = json.load(f)
-                for item in data:
                     results["findings"].append({
-                        "id": f"dns-{len(results['findings'])}",
-                        "title": f"DNS Record: {item.get('type')}",
-                        "severity": "Info",
-                        "description": f"Name: {item.get('name')}\nValue: {item.get('address') or item.get('exchange') or item.get('strings') or 'N/A'}"
+                        "id": f"nikto-{len(results['findings'])}",
+                        "title": "Nikto Finding",
+                        "severity": "Medium",
+                        "description": item.get("msg", "Unknown finding")
                     })
-        except Exception as e:
-            logger.error(f"Error reading dnsrecon file: {e}")
+            except: pass
+
+    # 3. ZAP
+    content = get_content("zap")
+    if content:
+        try:
+            data = json.loads(content)
+            sites = data.get("site", [])
+            if isinstance(sites, dict): sites = [sites]
+            for site in sites:
+                for alert in site.get("alerts", []):
+                    risk = alert.get("riskdesc", "Medium").split(" ")[0].capitalize()
+                    results["findings"].append({
+                        "id": f"zap-{len(results['findings'])}",
+                        "title": alert.get("name", "ZAP Finding"),
+                        "severity": risk,
+                        "description": alert.get("desc", "No description provided.")
+                    })
+        except: pass
+
+    # 4. WPScan
+    content = get_content("wpscan")
+    if content:
+        try:
+            data = json.loads(content)
+            if data.get("scan_aborted"):
+                 results["findings"].append({"id": f"wps-a", "title": "WPScan Aborted", "severity": "Info", "description": data.get("scan_aborted")})
+            else:
+                # Add parsing if needed
+                pass 
+        except: pass
+
+    # 5. Nmap
+    for nmap_svc in ["nmap_white", "nmap_gray", "nmap_black"]:
+        content = get_content(nmap_svc)
+        if content:
+            try:
+                root = ET.fromstring(content)
+                for port in root.findall(".//port"):
+                    portid = port.get("portid")
+                    state = port.find("state")
+                    if state is not None and state.get("state") == "open":
+                        service = port.find("service")
+                        svc_name = service.get("name") if service is not None else "unknown"
+                        results["findings"].append({
+                            "id": f"nmap-{len(results['findings'])}",
+                            "title": f"Open Port: {portid} ({svc_name})",
+                            "severity": "Low",
+                            "description": f"Port {portid} is open."
+                        })
+            except: pass
+
+    # 6. Dirsearch
+    content = get_content("dirsearch")
+    if content:
+        try:
+            data = json.loads(content)
+            entries = data if isinstance(data, list) else data.get("results", [])
+            for entry in entries:
+                if entry.get("status") in [200, 204, 301, 302, 307]:
+                    results["findings"].append({
+                        "id": f"dir-{len(results['findings'])}",
+                        "title": f"Directory: {entry.get('path')}",
+                        "severity": "Info",
+                        "description": f"URL: {entry.get('url')} ({entry.get('status')})"
+                    })
+        except: pass
+
+    # 7. SSLyze (Simplified)
+    content = get_content("sslyze")
+    if content:
+         results["findings"].append({"id": "ssl-info", "title": "SSLyze Completed", "severity": "Info", "description": "SSL Scan finished."})
 
 
-    # Placeholder for counts if findings empty
-    if not results["findings"]:
-        # Check if we at least have files but no findings
-        if results["raw_files"]:
-            results["findings"].append({
-                "id": "info-1",
-                "title": "Scan Finished",
-                "severity": "Info",
-                "description": f"Scan completed. Found files: {', '.join(results['raw_files'])}. No critical vulnerabilities were automatically flagged."
-            })
-        else:
-            results["findings"].append({
-                "id": "info-1",
-                "title": "Scan Incomplete",
-                "severity": "Info",
-                "description": "The scan finished or was interrupted without producing output files."
-            })
+    # 8. TestSSL
+    content = get_content("testssl")
+    if content:
+        try:
+            data = json.loads(content)
+            if isinstance(data, list):
+                for item in data:
+                   sev = item.get("severity", "INFO")
+                   if sev in ["FATAL", "CRITICAL", "HIGH", "MEDIUM", "LOW"]:
+                       results["findings"].append({
+                           "id": f"tssl-{len(results['findings'])}",
+                           "title": f"TestSSL: {item.get('id')}",
+                           "severity": sev.capitalize(),
+                           "description": item.get("finding")
+                       })
+        except: pass
 
-    # Final pass to ensure severity is capitalized correctly for frontend
-    for f in results["findings"]:
-        f["severity"] = f["severity"].capitalize()
-        # Map "Informational" or anything else to "Info" for consistency if needed
-        if f["severity"] == "Informational":
-            f["severity"] = "Info"
+    # 9. WhatWeb
+    content = get_content("whatweb")
+    if content:
+        try:
+            data = json.loads(content)
+            for entry in data:
+                plugins = entry.get("plugins", {})
+                results["findings"].append({
+                    "id": f"ww-{len(results['findings'])}",
+                    "title": "WhatWeb Tech Detected",
+                    "severity": "Info",
+                    "description": ", ".join(plugins.keys())
+                })
+        except: pass
+
+    # 10. Arjun
+    content = get_content("arjun")
+    if content:
+        try:
+            data = json.loads(content)
+            for url, params in data.items():
+                if params:
+                    results["findings"].append({
+                        "id": f"arj-{len(results['findings'])}",
+                        "title": "Hidden Parameters",
+                        "severity": "Medium",
+                        "description": f"Params: {', '.join(params)}"
+                    })
+        except: pass
+
+    # 11. Dalfox
+    content = get_content("dalfox")
+    if content:
+        try:
+             items = []
+             if content.strip().startswith("["):
+                 try: items = json.loads(content)
+                 except: pass
+             else:
+                 for line in content.splitlines():
+                     try: items.append(json.loads(line))
+                     except: pass
+             
+             for item in items:
+                # Fallback keys for Dalfox JSON
+                url_val = item.get('url') or item.get('target') or item.get('message_str') or "N/A"
+                param_val = item.get('param') or item.get('parameter') or "N/A"
+                poc_val = item.get('poc') or item.get('payload') or "N/A"
+
+                results["findings"].append({
+                    "id": f"dal-{len(results['findings'])}",
+                    "title": f"XSS: {item.get('type', 'Vuln')}",
+                    "severity": "High",
+                    "description": f"Target: {url_val}\nParam: {param_val}\nPayload: {poc_val}"
+                })
+        except: pass
+
+    # 12. Wafw00f
+    content = get_content("wafw00f")
+    if content:
+        try:
+            data = json.loads(content)
+            if isinstance(data, list):
+                for entry in data:
+                    firewall = entry.get("firewall", "None")
+                    if firewall and firewall != "None":
+                         results["findings"].append({
+                             "id": f"waf-{len(results['findings'])}",
+                             "title": f"WAF: {firewall}",
+                             "severity": "Info",
+                             "description": "WAF Detected"
+                         })
+        except: pass
+
+    # 13. DNSRecon
+    content = get_content("dnsrecon")
+    if content:
+        try:
+            data = json.loads(content)
+            if isinstance(data, list):
+                 results["findings"].append({
+                     "id": f"dns-{len(results['findings'])}",
+                     "title": f"DNS Records Found",
+                     "severity": "Info",
+                     "description": f"Found {len(data)} records"
+                 })
+        except: pass
 
     return results
