@@ -79,16 +79,31 @@ async def create_scan(req: ScanRequest):
 
 @app.get("/scan/{scan_id}")
 def get_scan_status(scan_id: str):
-    path = os.path.join(REPORT_DIR, scan_id, "data", "scan_summary.txt")
-    if os.path.exists(path):
+    dir_path = os.path.join(REPORT_DIR, scan_id, "data")
+    
+    # Check if scan directory exists
+    if not os.path.exists(dir_path):
+        return {"status": "not_found", "scan_id": scan_id}
+    
+    # Check for completion marker
+    summary_path = os.path.join(dir_path, "scan_summary.txt")
+    if os.path.exists(summary_path):
         return {"status": "completed", "scan_id": scan_id}
     
-    # Check if directory exists at least
-    dir_path = os.path.join(REPORT_DIR, scan_id, "data")
-    if os.path.exists(dir_path):
-        return {"status": "running", "scan_id": scan_id}
+    # Check if we have any report files (indicates partial or full completion)
+    try:
+        files = os.listdir(dir_path)
+        # Filter out meta.json, only count actual report files
+        report_files = [f for f in files if f != "meta.json" and not f.startswith(".")]
+        
+        if len(report_files) > 0:
+            # We have reports, consider it completed (even if timeout occurred)
+            return {"status": "completed", "scan_id": scan_id}
+    except Exception:
+        pass
     
-    return {"status": "not_found", "scan_id": scan_id}
+    # Directory exists but no reports yet
+    return {"status": "running", "scan_id": scan_id}
 
 
 @app.get("/scan/{scan_id}/results")

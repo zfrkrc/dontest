@@ -62,4 +62,10 @@ def run_scan(target: str, category: str, uid: str = None) -> str:
     except subprocess.CalledProcessError as e:
         raise RuntimeError(f"Merge failed (code {e.returncode}):\nSTDOUT: {e.stdout}\nSTDERR: {e.stderr}")
 
+    # Mark scan as completed
+    with open(f"{data_dir_internal}/scan_summary.txt", "w") as f:
+        f.write(f"Scan completed for {target}\n")
+        f.write(f"Category: {category}\n")
+        f.write(f"UID: {uid}\n")
+
     return uid
