@@ -9,14 +9,14 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Copy requirements
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY services/nmap/requirements.txt /app/
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # Copy base service module
-COPY ../base /app/services/base/
+COPY services/base /app/services/base/
 
 # Copy service code
-COPY . /app/
+COPY services/nmap /app/
 
 # Expose port
 EXPOSE 8000

@@ -5,9 +5,9 @@ RUN apt-get update && \
     ln -s /opt/testssl.sh/testssl.sh /usr/local/bin/testssl && \
     rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY ../base /app/services/base/
-COPY . /app/
+COPY services/testssl/requirements.txt /app/
+RUN pip install --no-cache-dir -r /app/requirements.txt
+COPY services/base /app/services/base/
+COPY services/testssl /app/
 EXPOSE 8000
 CMD ["python", "service.py"]

@@ -41,7 +41,9 @@ services:
 
   # Tool Microservices
   nmap-service:
-    build: ./backend/services/nmap
+    build:
+      context: ./backend
+      dockerfile: services/nmap/Dockerfile
     ports:
       - "8001:8000"
     environment:
@@ -52,7 +54,9 @@ services:
     restart: unless-stopped
 
   nuclei-service:
-    build: ./backend/services/nuclei
+    build:
+      context: ./backend
+      dockerfile: services/nuclei/Dockerfile
     ports:
       - "8002:8000"
     environment:
@@ -62,7 +66,9 @@ services:
     restart: unless-stopped
 
   testssl-service:
-    build: ./backend/services/testssl
+    build:
+      context: ./backend
+      dockerfile: services/testssl/Dockerfile
     ports:
       - "8003:8000"
     environment:
@@ -72,7 +78,9 @@ services:
     restart: unless-stopped
 
   dirsearch-service:
-    build: ./backend/services/dirsearch
+    build:
+      context: ./backend
+      dockerfile: services/dirsearch/Dockerfile
     ports:
       - "8004:8000"
     environment:
@@ -82,7 +90,9 @@ services:
     restart: unless-stopped
 
   nikto-service:
-    build: ./backend/services/nikto
+    build:
+      context: ./backend
+      dockerfile: services/nikto/Dockerfile
     ports:
       - "8005:8000"
     environment:
@@ -92,7 +102,9 @@ services:
     restart: unless-stopped
 
   whatweb-service:
-    build: ./backend/services/whatweb
+    build:
+      context: ./backend
+      dockerfile: services/whatweb/Dockerfile
     ports:
       - "8006:8000"
     environment:
@@ -102,7 +114,9 @@ services:
     restart: unless-stopped
 
   arjun-service:
-    build: ./backend/services/arjun
+    build:
+      context: ./backend
+      dockerfile: services/arjun/Dockerfile
     ports:
       - "8007:8000"
     environment:
@@ -112,7 +126,9 @@ services:
     restart: unless-stopped
 
   dalfox-service:
-    build: ./backend/services/dalfox
+    build:
+      context: ./backend
+      dockerfile: services/dalfox/Dockerfile
     ports:
       - "8008:8000"
     environment:
@@ -122,7 +138,9 @@ services:
     restart: unless-stopped
 
   wafw00f-service:
-    build: ./backend/services/wafw00f
+    build:
+      context: ./backend
+      dockerfile: services/wafw00f/Dockerfile
     ports:
       - "8009:8000"
     environment:
@@ -132,7 +150,9 @@ services:
     restart: unless-stopped
 
   dnsrecon-service:
-    build: ./backend/services/dnsrecon
+    build:
+      context: ./backend
+      dockerfile: services/dnsrecon/Dockerfile
     ports:
       - "8010:8000"
     environment:
@@ -142,7 +162,9 @@ services:
     restart: unless-stopped
 
   wpscan-service:
-    build: ./backend/services/wpscan
+    build:
+      context: ./backend
+      dockerfile: services/wpscan/Dockerfile
     ports:
       - "8011:8000"
     environment:
@@ -152,7 +174,9 @@ services:
     restart: unless-stopped
 
   zap-service:
-    build: ./backend/services/zap
+    build:
+      context: ./backend
+      dockerfile: services/zap/Dockerfile
     ports:
       - "8012:8000"
     environment:
@@ -162,7 +186,9 @@ services:
     restart: unless-stopped
 
   sslyze-service:
-    build: ./backend/services/sslyze
+    build:
+      context: ./backend
+      dockerfile: services/sslyze/Dockerfile
     ports:
       - "8013:8000"
     environment:

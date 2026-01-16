@@ -6,9 +6,9 @@ RUN apt-get update && \
     chmod +x /opt/nikto/program/nikto.pl && \
     rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY ../base /app/services/base/
-COPY . /app/
+COPY services/nikto/requirements.txt /app/
+RUN pip install --no-cache-dir -r /app/requirements.txt
+COPY services/base /app/services/base/
+COPY services/nikto /app/
 EXPOSE 8000
 CMD ["python", "service.py"]

@@ -14,9 +14,9 @@ RUN printf '#!/bin/bash\n/opt/zap/zap.sh -cmd -quickurl "$@" -quickprogress\n' >
     chmod +x /usr/local/bin/zap
 
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY ../base /app/services/base/
-COPY . /app/
+COPY services/zap/requirements.txt /app/
+RUN pip install --no-cache-dir -r /app/requirements.txt
+COPY services/base /app/services/base/
+COPY services/zap /app/
 EXPOSE 8000
 CMD ["python", "service.py"]
