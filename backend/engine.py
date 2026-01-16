@@ -1,6 +1,7 @@
 import subprocess
 import uuid
 import os
+import json
 
 BASE_DIR = "/app"
 COMPOSE_FILE = f"{BASE_DIR}/compose/docker-compose.string.yml"
