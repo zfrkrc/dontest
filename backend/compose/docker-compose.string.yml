@@ -23,7 +23,7 @@ services:
       dockerfile: Dockerfile
     profiles: [ "white" ]
     # -q: quiet mode to avoid log flooding
-    command: -u ${TARGET_URL} --format=json -o /data/dirsearch.json -q
+    command: dirsearch -u ${TARGET_URL} --format=json -o /data/dirsearch.json -q
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -34,7 +34,7 @@ services:
       dockerfile: Dockerfile
     profiles: [ "white" ]
     # Nikto with JSON output format
-    command: -h ${TARGET_URL} -o /data/nikto_white.json -Format json
+    command: nikto -h ${TARGET_URL} -o /data/nikto_white.json -Format json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -44,7 +44,7 @@ services:
       context: ../services/whatweb
       dockerfile: Dockerfile
     profiles: [ "white" ]
-    command: --log-json /data/whatweb.json ${TARGET_URL}
+    command: whatweb --log-json /data/whatweb.json ${TARGET_URL}
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -55,7 +55,7 @@ services:
       dockerfile: Dockerfile
     profiles: [ "white" ]
     # Focus on non-intrusive tech detection and exposures
-    command: -u ${TARGET_URL} -tags exposures,tech-detect -jsonl -o /data/nuclei_white.json
+    command: nuclei -u ${TARGET_URL} -tags exposures,tech-detect -jsonl -o /data/nuclei_white.json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -66,7 +66,7 @@ services:
       dockerfile: Dockerfile
     profiles: [ "white" ]
     # Ensure protocol is present for Arjun
-    command: -u ${TARGET_URL} -oJ /data/arjun.json
+    command: arjun -u ${TARGET_URL} -oJ /data/arjun.json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -77,7 +77,7 @@ services:
       dockerfile: Dockerfile
     profiles: [ "white" ]
     # Ensure protocol is present for Dalfox
-    command: url ${TARGET_URL} --output /data/dalfox.json --format json
+    command: dalfox url ${TARGET_URL} --output /data/dalfox.json --format json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -87,7 +87,7 @@ services:
       context: ../services/wafw00f
       dockerfile: Dockerfile
     profiles: [ "white" ]
-    command: ${TARGET_URL} -f json -o /data/wafw00f.json
+    command: wafw00f ${TARGET_URL} -f json -o /data/wafw00f.json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -97,7 +97,7 @@ services:
       context: ../services/dnsrecon
       dockerfile: Dockerfile
     profiles: [ "white" ]
-    command: -d ${TARGET_DOMAIN} --json /data/dnsrecon.json
+    command: dnsrecon -d ${TARGET_DOMAIN} --json /data/dnsrecon.json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -117,7 +117,7 @@ services:
       dockerfile: Dockerfile
     profiles: [ "gray" ]
     # Simple command since entrypoint is set in Dockerfile
-    command: --url ${TARGET_URL} --format json -o /data/wpscan.json --disable-tls-checks
+    command: wpscan --url ${TARGET_URL} --format json -o /data/wpscan.json --disable-tls-checks
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -141,7 +141,7 @@ services:
       dockerfile: Dockerfile
     profiles: [ "gray" ]
     # Command is now just the arguments, entrypoint is in Dockerfile
-    command: --json_out=/data/sslyze.json ${TARGET_DOMAIN}
+    command: sslyze --json_out=/data/sslyze.json ${TARGET_DOMAIN}
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -160,7 +160,7 @@ services:
       context: ../services/nuclei
       dockerfile: Dockerfile
     profiles: [ "black" ]
-    command: -u ${TARGET_URL} -jsonl -o /data/nuclei.json
+    command: nuclei -u ${TARGET_URL} -jsonl -o /data/nuclei.json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
@@ -170,7 +170,7 @@ services:
       context: ../services/nikto
       dockerfile: Dockerfile
     profiles: [ "black" ]
-    command: -h ${TARGET_URL} -o /data/nikto_black.json -Format json
+    command: nikto -h ${TARGET_URL} -o /data/nikto_black.json -Format json
     volumes:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
