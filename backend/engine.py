@@ -89,8 +89,9 @@ def save_result_to_redis(uid: str, service_name: str, host_data_dir_internal: st
 
 async def run_service_async(service_name: str, env_vars: dict, uid: str) -> tuple:
     """Run a single service asynchronously using docker compose with timeout and live logging"""
-    # Timeout settings: 3 minutes (180s)
-    SERVICE_TIMEOUT = 180 
+    # Timeout settings: Longer for slow services
+    SLOW_SERVICES = ["nikto_white", "nikto_black", "testssl", "nuclei", "nuclei_white"]
+    SERVICE_TIMEOUT = 300 if service_name in SLOW_SERVICES else 180
     
     log_scan(uid, f"🚀 Starting {service_name} (Timeout: {SERVICE_TIMEOUT}s)...")
     start_time = time.time()

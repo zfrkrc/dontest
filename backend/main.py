@@ -363,7 +363,9 @@ def get_scan_results(scan_id: str):
                            "severity": sev.capitalize(),
                            "description": item.get("finding")
                        })
-        except: pass
+        except Exception as e:
+            logger.error(f"TestSSL parsing error: {e}")
+            results["findings"].append({"id": "err-testssl", "title": "TestSSL Parse Error", "severity": "Info", "description": str(e)})
 
     # 9. WhatWeb
     content = get_content("whatweb")
