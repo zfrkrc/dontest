@@ -19,8 +19,8 @@ services:
 
   dirsearch:
     build:
-      context: ../services/dirsearch
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/dirsearch/Dockerfile
     profiles: [ "white" ]
     # -q: quiet mode to avoid log flooding
     command: dirsearch -u ${TARGET_URL} --format=json -o /data/dirsearch.json -q
@@ -30,8 +30,8 @@ services:
 
   nikto_white:
     build:
-      context: ../services/nikto
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/nikto/Dockerfile
     profiles: [ "white" ]
     # Nikto with JSON output format
     command: nikto -h ${TARGET_URL} -o /data/nikto_white.json -Format json
@@ -41,8 +41,8 @@ services:
 
   whatweb:
     build:
-      context: ../services/whatweb
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/whatweb/Dockerfile
     profiles: [ "white" ]
     command: whatweb --log-json /data/whatweb.json ${TARGET_URL}
     volumes:
@@ -51,8 +51,8 @@ services:
 
   nuclei_white:
     build:
-      context: ../services/nuclei
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/nuclei/Dockerfile
     profiles: [ "white" ]
     # Focus on non-intrusive tech detection and exposures
     command: nuclei -u ${TARGET_URL} -tags exposures,tech-detect -jsonl -o /data/nuclei_white.json
@@ -62,8 +62,8 @@ services:
 
   arjun:
     build:
-      context: ../services/arjun
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/arjun/Dockerfile
     profiles: [ "white" ]
     # Ensure protocol is present for Arjun
     command: arjun -u ${TARGET_URL} -oJ /data/arjun.json
@@ -73,8 +73,8 @@ services:
 
   dalfox:
     build:
-      context: ../services/dalfox
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/dalfox/Dockerfile
     profiles: [ "white" ]
     # Ensure protocol is present for Dalfox
     command: dalfox url ${TARGET_URL} --output /data/dalfox.json --format json
@@ -84,8 +84,8 @@ services:
 
   wafw00f:
     build:
-      context: ../services/wafw00f
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/wafw00f/Dockerfile
     profiles: [ "white" ]
     command: wafw00f ${TARGET_URL} -f json -o /data/wafw00f.json
     volumes:
@@ -94,8 +94,8 @@ services:
 
   dnsrecon:
     build:
-      context: ../services/dnsrecon
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/dnsrecon/Dockerfile
     profiles: [ "white" ]
     command: dnsrecon -d ${TARGET_DOMAIN} --json /data/dnsrecon.json
     volumes:
@@ -113,8 +113,8 @@ services:
 
   wpscan:
     build:
-      context: ../services/wpscan
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/wpscan/Dockerfile
     profiles: [ "gray" ]
     # Simple command since entrypoint is set in Dockerfile
     command: wpscan --url ${TARGET_URL} --format json -o /data/wpscan.json --disable-tls-checks
@@ -124,8 +124,8 @@ services:
 
   zap:
     build:
-      context: ../services/zap
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/zap/Dockerfile
     profiles: [ "gray" ]
     user: root
     # ZAP baseline script expects output in /zap/wrk/ by default when mapped.
@@ -137,8 +137,8 @@ services:
 
   sslyze:
     build:
-      context: ../services/sslyze
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/sslyze/Dockerfile
     profiles: [ "gray" ]
     # Command is now just the arguments, entrypoint is in Dockerfile
     command: sslyze --json_out=/data/sslyze.json ${TARGET_DOMAIN}
@@ -157,8 +157,8 @@ services:
 
   nuclei:
     build:
-      context: ../services/nuclei
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/nuclei/Dockerfile
     profiles: [ "black" ]
     command: nuclei -u ${TARGET_URL} -jsonl -o /data/nuclei.json
     volumes:
@@ -167,8 +167,8 @@ services:
 
   nikto_black:
     build:
-      context: ../services/nikto
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: services/nikto/Dockerfile
     profiles: [ "black" ]
     command: nikto -h ${TARGET_URL} -o /data/nikto_black.json -Format json
     volumes:
