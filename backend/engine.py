@@ -25,7 +25,8 @@ REPORT_DIR = f"{BASE_DIR}/reports"
 
 # Define services for each profile
 PROFILE_SERVICES = {
-    "white": ["nmap_white", "testssl", "dirsearch", "nikto_white", "whatweb", "arjun", "dalfox", "wafw00f", "dnsrecon", "nuclei_white"],
+    "white": ["nmap_white", "testssl", "dirsearch", "nikto_white", "whatweb", "arjun", "dalfox", "wafw00f", "dnsrecon", "nuclei_white",
+              "sqlmap", "commix", "gittools", "wapiti", "nosqlmap", "gobuster", "arachni"],
     "gray": ["nmap_gray", "wpscan", "zap", "sslyze"],
     "black": ["nmap_black", "nikto_black", "nuclei"]
 }
@@ -49,7 +50,15 @@ OUTPUT_MAPPING = {
     "arjun": "arjun.json",
     "dalfox": "dalfox.json",
     "wafw00f": "wafw00f.json",
-    "dnsrecon": "dnsrecon.json"
+    "dnsrecon": "dnsrecon.json",
+    "sqlmap": "sqlmap_output/log",
+    "commix": "commix.txt",
+    "gittools": "gittools.log",
+    "wapiti": "wapiti.json",
+    "nosqlmap": "nosqlmap.txt",
+    "gobuster": "gobuster.json",
+    "w3af": "w3af.json",
+    "arachni": "arachni.afr"
 }
 
 def log_scan(uid: str, message: str):
@@ -90,7 +99,8 @@ def save_result_to_redis(uid: str, service_name: str, host_data_dir_internal: st
 async def run_service_async(service_name: str, env_vars: dict, uid: str) -> tuple:
     """Run a single service asynchronously using docker compose with timeout and live logging"""
     # Timeout settings: Longer for slow services
-    SLOW_SERVICES = ["nikto_white", "nikto_black", "testssl", "nuclei", "nuclei_white", "dalfox"]
+    SLOW_SERVICES = ["nikto_white", "nikto_black", "testssl", "nuclei", "nuclei_white", "dalfox", 
+                     "sqlmap", "arachni", "wapiti"]
     SERVICE_TIMEOUT = 300 if service_name in SLOW_SERVICES else 180
     
     log_scan(uid, f"🚀 Starting {service_name} (Timeout: {SERVICE_TIMEOUT}s)...")

@@ -102,6 +102,87 @@ services:
       - ${HOST_DATA_DIR}:/data
     network_mode: bridge
 
+  sqlmap:
+    build:
+      context: ..
+      dockerfile: services/sqlmap/Dockerfile
+    profiles: [ "white" ]
+    command: -u ${TARGET_URL} --batch --crawl=2 --random-agent --answers="crack=N" --output-dir=/data/sqlmap_output
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  commix:
+    build:
+      context: ..
+      dockerfile: services/commix/Dockerfile
+    profiles: [ "white" ]
+    command: --url ${TARGET_URL} --batch --output-dir=/data
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  gittools:
+    build:
+      context: ..
+      dockerfile: services/gittools/Dockerfile
+    profiles: [ "white" ]
+    command: ${TARGET_URL}/.git /data/gitdump
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  wapiti:
+    build:
+      context: ..
+      dockerfile: services/wapiti/Dockerfile
+    profiles: [ "white" ]
+    command: -u ${TARGET_URL} -f json -o /data/wapiti.json
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  nosqlmap:
+    build:
+      context: ..
+      dockerfile: services/nosqlmap/Dockerfile
+    profiles: [ "white" ]
+    command: --target ${TARGET_URL} --attack 1
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  gobuster:
+    build:
+      context: ..
+      dockerfile: services/gobuster/Dockerfile
+    profiles: [ "white" ]
+    command: dir -u ${TARGET_URL} -w /usr/share/wordlists/common.txt -o /data/gobuster.json --no-error -q
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
+  # w3af:
+  #   build:
+  #     context: ..
+  #     dockerfile: services/w3af/Dockerfile
+  #   profiles: [ "white" ]
+  #   # W3AF requires a script file - needs additional setup
+  #   command: -s /data/w3af_script.w3af
+  #   volumes:
+  #     - ${HOST_DATA_DIR}:/data
+  #   network_mode: bridge
+
+  arachni:
+    build:
+      context: ..
+      dockerfile: services/arachni/Dockerfile
+    profiles: [ "white" ]
+    command: ${TARGET_URL} --report-save-path=/data/arachni.afr --output-only-positives
+    volumes:
+      - ${HOST_DATA_DIR}:/data
+    network_mode: bridge
+
   # Gray Profile
   nmap_gray:
     image: instrumentisto/nmap
